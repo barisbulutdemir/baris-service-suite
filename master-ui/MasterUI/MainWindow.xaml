@@ -1,0 +1,292 @@
+<Window x:Class="MasterUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MasterUI"
+        mc:Ignorable="d"
+        Title="Barış Teknik Servis Paneli (Industrial Suite)" 
+        Height="720" Width="1200"
+        Background="#121212"
+        Foreground="#FFFFFF"
+        WindowStartupLocation="CenterScreen">
+    
+    <Window.Resources>
+        <!-- Custom Modern Scrollbar Style -->
+        <!-- Theme Colors -->
+        <SolidColorBrush x:Key="BgDark" Color="#121212"/>
+        <SolidColorBrush x:Key="BgPanel" Color="#1E1E1E"/>
+        <SolidColorBrush x:Key="AccentBlue" Color="#007ACC"/>
+        <SolidColorBrush x:Key="AccentRed" Color="#D9381E"/>
+        <SolidColorBrush x:Key="TextLight" Color="#E5E5E5"/>
+        <SolidColorBrush x:Key="TextMuted" Color="#8A8A8A"/>
+
+        <!-- Control templates & styles -->
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource AccentBlue}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="15,10"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#0096FF"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#333333"/>
+                    <Setter Property="Foreground" Value="#666666"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="DisconnectButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource AccentRed}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="20,12"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Ellipse Width="8" Height="8" Fill="White" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FF4C3B"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <!-- Sidebar (Sites) -->
+            <ColumnDefinition Width="280"/>
+            <!-- Main Content -->
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- SIDEBAR -->
+        <Border Grid.Column="0" Background="{StaticResource BgPanel}" BorderBrush="#252526" BorderThickness="0,0,1,0">
+            <Grid Margin="15">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Brand Header -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,15">
+                    <TextBlock Text="BARIŞ" FontSize="20" FontWeight="Black" Foreground="{StaticResource AccentBlue}"/>
+                    <TextBlock Text="Technical Service Suite" FontSize="11" Foreground="{StaticResource TextMuted}" Margin="0,2,0,0"/>
+                </StackPanel>
+
+                <Separator Grid.Row="1" Background="#2D2D30" Margin="0,0,0,15"/>
+
+                <!-- Sites List -->
+                <Grid Grid.Row="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="ŞANTİYELER" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextMuted}" Margin="0,0,0,10"/>
+
+                    <ListBox x:Name="SitesListBox" Grid.Row="1" 
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             MouseDoubleClick="SitesListBox_MouseDoubleClick">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Margin" Value="0,2"/>
+                                <Setter Property="Padding" Value="10,8"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#2D2D30"/>
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#3F3F46"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <!-- Online/Offline indicator circle -->
+                                    <Ellipse Grid.Column="0" Width="10" Height="10" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="#E81123"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsOnline}" Value="True">
+                                                        <Setter Property="Fill" Value="#107C41"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Foreground="White"/>
+                                        <TextBlock Text="{Binding RustDeskId, StringFormat='ID: {0}'}" FontSize="11" Foreground="{StaticResource TextMuted}" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+
+                <!-- Footer Connection State -->
+                <Border Grid.Row="3" Background="#252526" CornerRadius="4" Padding="10" Margin="0,15,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="ServerStatusIndicator" Width="8" Height="8" Fill="#E81123" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock x:Name="ServerStatusText" Text="Sunucu: Bağlı Değil" FontSize="11" Foreground="{StaticResource TextLight}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- MAIN WINDOW VIEWPORT -->
+        <Grid Grid.Column="1" Background="{StaticResource BgDark}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- UPPER BAR (Active Connection Status / Header) -->
+            <Border Grid.Row="0" Background="{StaticResource BgPanel}" BorderBrush="#252526" BorderThickness="0,0,0,1" Padding="20,15">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock x:Name="ActiveConnectionHeader" Text="Tünel ve Uzak Masaüstü Boşta" FontSize="16" FontWeight="SemiBold" Foreground="White"/>
+                        <TextBlock x:Name="ActiveConnectionSubheader" Text="Bağlantı kurmak için sol listeden aktif bir şantiyeye çift tıklayın." FontSize="12" Foreground="{StaticResource TextMuted}" Margin="0,2,0,0"/>
+                    </StackPanel>
+
+                    <!-- Huge OTURUMU KAPAT button -->
+                    <Button x:Name="DisconnectButton" Grid.Column="1" Style="{StaticResource DisconnectButton}" 
+                            Content="OTURUMU KAPAT" Visibility="Collapsed" Click="DisconnectButton_Click"/>
+                </Grid>
+            </Border>
+
+            <!-- TABS & SCREENS -->
+            <TabControl x:Name="MainTabControl" Grid.Row="1" Background="Transparent" BorderThickness="0" Margin="10">
+                <TabControl.ItemContainerStyle>
+                    <Style TargetType="TabItem">
+                        <Setter Property="Visibility" Value="Collapsed"/> <!-- Hide tabs headers for embedded app style -->
+                    </Style>
+                </TabControl.ItemContainerStyle>
+                
+                <!-- Tab 1: Dashboard Logs (Idle Screen) -->
+                <TabItem Header="Dashboard">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Log Terminal -->
+                        <Border Grid.Row="0" Background="#0C0C0C" CornerRadius="6" BorderBrush="#2D2D30" BorderThickness="1" Padding="15">
+                            <ScrollViewer x:Name="LogScrollViewer" VerticalScrollBarVisibility="Auto">
+                                <TextBox x:Name="LogTextBox" Background="Transparent" Foreground="#107C41" 
+                                         BorderThickness="0" FontFamily="Consolas" FontSize="12"
+                                         IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                                         Text="[Sistem] Hazır. Bağlantı bekliyor..."/>
+                            </ScrollViewer>
+                        </Border>
+
+                        <!-- Informational Help -->
+                        <Border Grid.Row="1" Background="{StaticResource BgPanel}" CornerRadius="6" Padding="15" Margin="0,15,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Sihirli PLC Bağlantısı Kılavuzu:" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextLight}"/>
+                                <TextBlock FontSize="12" Foreground="{StaticResource TextMuted}" Margin="0,5,0,0" TextWrapping="Wrap" LineHeight="18">
+                                    Bağlantı başarıyla sağlandıktan sonra, program arka planda bilgisayarınızda sanal bir ağ adaptörü oluşturacaktır. 
+                                    TIA Portal, CX-Programmer veya OPC UA Client programlarında herhangi bir ayar yapmanıza gerek kalmadan, doğrudan PLC adresi olarak orijinal IP'yi (<Run Foreground="White" FontWeight="Bold">192.168.0.1</Run>) yazıp bağlanabilirsiniz. 
+                                    Oturumu Kapattığınızda, bu sanal IP ve tünel sisteminizden otomatik olarak temizlenecektir.
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </TabItem>
+
+                <!-- Tab 2: Embedded Screen Share (Active Screen) -->
+                <TabItem Header="RemoteDesktop">
+                    <Grid>
+                        <Border Background="#1C1C1C" CornerRadius="6" BorderBrush="#2D2D30" BorderThickness="1" ClipToBounds="True">
+                            <Grid x:Name="RemoteDesktopContainer">
+                                <!-- Remote desktop host control will be inserted dynamically here -->
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+        </Grid>
+
+        <!-- ADMIN EXCLUSION WARNING OVERLAY -->
+        <Grid x:Name="AdminWarningOverlay" Grid.ColumnSpan="2" Background="#D9000000" Visibility="Collapsed">
+            <Border Background="#1E1E1E" BorderBrush="{StaticResource AccentRed}" BorderThickness="2" 
+                    CornerRadius="8" Width="480" Height="260" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="30">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Orientation="Horizontal">
+                        <Path Width="24" Height="24" Fill="{StaticResource AccentRed}" Stretch="Fill" Margin="0,0,10,0"
+                              Data="M12,2L1,21H23L12,2M12,6L19.53,19H4.47L12,6M11,10V14H13V10H11M11,16V18H13V16H11Z"/>
+                        <TextBlock Text="YÖNETİCİ YETKİSİ GEREKLİ" FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="1" Text="Wintun sanal ağ adaptörünü kurmak ve PLC IP adresini (192.168.0.1) bilgisayarınıza tünellemek için bu uygulamanın Yönetici olarak çalıştırılması gerekmektedir.&#x0a;&#x0a;Lütfen uygulamayı kapatıp sağ tıklayarak 'Yönetici olarak çalıştır' seçeneğiyle yeniden başlatın." 
+                               TextWrapping="Wrap" FontSize="13" Foreground="{StaticResource TextLight}" VerticalAlignment="Center" LineHeight="20"/>
+
+                    <Button Grid.Row="2" Style="{StaticResource ModernButton}" Background="{StaticResource AccentRed}" 
+                            Content="Uygulamadan Çık" HorizontalAlignment="Right" Width="120" Click="CloseAppButton_Click"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

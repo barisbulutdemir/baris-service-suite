@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  hbbs:
+    image: rustdesk/rustdesk-server:latest
+    container_name: rustdesk-hbbs
+    command: hbbs -r rustdesk-hbbr.local:21117 -k _
+    volumes:
+      - ./rustdesk-data:/root
+    network_mode: "host"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  hbbr:
+    image: rustdesk/rustdesk-server:latest
+    container_name: rustdesk-hbbr
+    command: hbbr -k _
+    volumes:
+      - ./rustdesk-data:/root
+    network_mode: "host"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: baris-orchestrator
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - AUTH_TOKEN=BarisServis2026!
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
