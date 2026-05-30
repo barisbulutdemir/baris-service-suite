@@ -140,6 +140,14 @@
                                         </ControlTemplate>
                                     </Setter.Value>
                                 </Setter>
+                                <Setter Property="ContextMenu">
+                                    <Setter.Value>
+                                        <ContextMenu Background="#1E1E1E" Foreground="White" BorderBrush="#2D2D30">
+                                            <MenuItem Header="Sadece Ekrana Bağlan" Click="MenuConnectScreenOnly_Click"/>
+                                            <MenuItem Header="Ekran ve PLC Tüneli Aç" Click="MenuConnectWithTunnel_Click"/>
+                                        </ContextMenu>
+                                    </Setter.Value>
+                                </Setter>
                             </Style>
                         </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>

@@ -120,10 +120,34 @@ namespace MasterUI
 
         private async void SitesListBox_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            if (_isConnecting || _activeSiteId != null) return;
-
             var selectedSite = SitesListBox.SelectedItem as SiteUI;
-            if (selectedSite == null) return;
+            if (selectedSite != null)
+            {
+                await StartConnectionAsync(selectedSite, enableTunnel: false);
+            }
+        }
+
+        private async void MenuConnectScreenOnly_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedSite = SitesListBox.SelectedItem as SiteUI;
+            if (selectedSite != null)
+            {
+                await StartConnectionAsync(selectedSite, enableTunnel: false);
+            }
+        }
+
+        private async void MenuConnectWithTunnel_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedSite = SitesListBox.SelectedItem as SiteUI;
+            if (selectedSite != null)
+            {
+                await StartConnectionAsync(selectedSite, enableTunnel: true);
+            }
+        }
+
+        private async Task StartConnectionAsync(SiteUI selectedSite, bool enableTunnel)
+        {
+            if (_isConnecting || _activeSiteId != null) return;
 
             if (!selectedSite.IsOnline)
             {
@@ -133,10 +157,10 @@ namespace MasterUI
 
             _isConnecting = true;
             _activeSiteId = selectedSite.Id;
-            Log($"[Bağlantı] {selectedSite.Name} şantiyesine bağlanılıyor...");
+            Log($"[Bağlantı] {selectedSite.Name} şantiyesine bağlanılıyor (Tünel: {(enableTunnel ? "Aktif" : "Pasif")})...");
 
             ActiveConnectionHeader.Text = $"{selectedSite.Name} Şantiyesine Bağlanılıyor...";
-            ActiveConnectionSubheader.Text = "Tünel ve uzak masaüstü oturumu başlatılıyor, lütfen bekleyin...";
+            ActiveConnectionSubheader.Text = "Uzak masaüstü oturumu başlatılıyor, lütfen bekleyin...";
 
             try
             {
@@ -147,28 +171,34 @@ namespace MasterUI
                     throw new Exception("Sunucu oturum başlatma isteğini reddetti veya zaman aşımına uğradı.");
                 }
 
-                Log("[Bağlantı] Sunucu el sıkışması tamamlandı. SOCKS5 ve ağ tüneli başlatılıyor...");
+                Log("[Bağlantı] Sunucu el sıkışması tamamlandı.");
 
-                // 2. Start Local SOCKS5 Proxy
-                _socksServer = new LocalSocksServer(1080, _orchestrator, selectedSite.Id);
-                _socksServer.OnLog += Log;
-                _socksServer.Start();
-
-                // 3. Start Wintun / tun2socks Routing
-                _wintunManager = new WintunManager();
-                _wintunManager.OnLog += Log;
-                
-                bool wintunStarted = await _wintunManager.StartAsync();
-                if (!wintunStarted)
+                if (enableTunnel)
                 {
-                    throw new Exception("Wintun sanal ağ tüneli başlatılamadı.");
+                    Log("[Bağlantı] SOCKS5 ve Wintun ağ tüneli başlatılıyor...");
+                    // 2. Start Local SOCKS5 Proxy
+                    _socksServer = new LocalSocksServer(1080, _orchestrator, selectedSite.Id);
+                    _socksServer.OnLog += Log;
+                    _socksServer.Start();
+
+                    // 3. Start Wintun / tun2socks Routing
+                    _wintunManager = new WintunManager();
+                    _wintunManager.OnLog += Log;
+                    
+                    bool wintunStarted = await _wintunManager.StartAsync();
+                    if (!wintunStarted)
+                    {
+                        throw new Exception("Wintun sanal ağ tüneli başlatılamadı.");
+                    }
                 }
 
                 // 4. Update UI Header status
                 Dispatcher.Invoke(() =>
                 {
                     ActiveConnectionHeader.Text = $"BAĞLI: {selectedSite.Name}";
-                    ActiveConnectionSubheader.Text = $"IP Tüneli Aktif (192.168.0.1) | SOCKS5 Tüneli Aktif (Port 1080)";
+                    ActiveConnectionSubheader.Text = enableTunnel 
+                        ? "IP Tüneli Aktif (192.168.0.0/24) | SOCKS5 Tüneli Aktif (Port 1080)" 
+                        : "Sadece Ekran Paylaşımı Aktif (Ağ Tüneli Kapalı)";
                     DisconnectButton.Visibility = Visibility.Visible;
                 });
 
