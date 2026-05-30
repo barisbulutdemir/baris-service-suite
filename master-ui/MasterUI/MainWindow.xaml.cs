@@ -19,7 +19,7 @@ namespace MasterUI
         private WintunManager? _wintunManager;
         private RustDeskHost? _rustDeskHost;
         
-        private readonly string _serverUrl = "http://localhost:3000";
+        private readonly string _serverUrl = "https://remote.barisbd.tr";
         private readonly string _authToken = "BarisServis2026!";
         private string? _activeSiteId;
         private bool _isConnecting = false;
