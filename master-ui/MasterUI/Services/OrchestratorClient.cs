@@ -243,6 +243,24 @@ namespace MasterUI.Services
             return false;
         }
 
+        public async Task RenameSiteAsync(string siteId, string newName)
+        {
+            if (_client != null && _client.Connected)
+            {
+                await _client.EmitAsync("rename-site", new object[] { new { siteId, newName } });
+                Log($"[Socket] Şantiye {siteId} için yeni isim talebi gönderildi: '{newName}'");
+            }
+        }
+
+        public async Task DeleteSiteAsync(string siteId)
+        {
+            if (_client != null && _client.Connected)
+            {
+                await _client.EmitAsync("delete-site", new object[] { new { siteId } });
+                Log($"[Socket] Şantiye {siteId} için silme talebi gönderildi.");
+            }
+        }
+
         public async Task DisconnectAsync()
         {
             if (_client != null)
@@ -274,5 +292,15 @@ namespace MasterUI.Services
         public string? rustDeskPassword { get; set; }
         public string? socketId { get; set; }
         public long? lastSeen { get; set; }
+        public LocationDetails? location { get; set; }
+    }
+
+    public class LocationDetails
+    {
+        public string? country { get; set; }
+        public string? city { get; set; }
+        public double? lat { get; set; }
+        public double? lon { get; set; }
+        public string? isp { get; set; }
     }
 }

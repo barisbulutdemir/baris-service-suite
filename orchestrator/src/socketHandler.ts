@@ -23,6 +23,12 @@ export function setupSocketHandler(io: Server, siteManager: SiteManager, authTok
       const siteName = socket.handshake.query.siteName as string;
       const rustDeskId = socket.handshake.query.rustDeskId as string;
       const rustDeskPassword = socket.handshake.query.rustDeskPassword as string;
+      
+      const country = socket.handshake.query.locationCountry as string;
+      const city = socket.handshake.query.locationCity as string;
+      const latStr = socket.handshake.query.locationLat as string;
+      const lonStr = socket.handshake.query.locationLon as string;
+      const isp = socket.handshake.query.locationIsp as string;
 
       if (!siteId) {
         console.log(`[Socket] Agent connection rejected: Missing siteId`);
@@ -30,8 +36,16 @@ export function setupSocketHandler(io: Server, siteManager: SiteManager, authTok
         return;
       }
 
+      const location = country ? {
+        country,
+        city,
+        lat: latStr ? parseFloat(latStr) : undefined,
+        lon: lonStr ? parseFloat(lonStr) : undefined,
+        isp
+      } : undefined;
+
       console.log(`[Socket] Agent registered: ${siteId} (${siteName})`);
-      siteManager.registerAgent(siteId, siteName, socket.id, rustDeskId, rustDeskPassword);
+      siteManager.registerAgent(siteId, siteName, socket.id, rustDeskId, rustDeskPassword, location);
 
       // Notify all master clients that sites list updated
       io.to('masters').emit('sites-list', siteManager.getSitesList());
@@ -175,6 +189,43 @@ export function setupSocketHandler(io: Server, siteManager: SiteManager, authTok
             port: data.port,
             chunk: data.chunk
           });
+        }
+      });
+
+      // Master requests to rename site
+      socket.on('rename-site', (data: { siteId: string; newName: string }, callback: (res: { success: boolean }) => void) => {
+        const success = siteManager.renameSite(data.siteId, data.newName);
+        if (success) {
+          console.log(`[Socket] Site ${data.siteId} renamed to "${data.newName}"`);
+          io.to('masters').emit('sites-list', siteManager.getSitesList());
+          if (callback) callback({ success: true });
+        } else {
+          if (callback) callback({ success: false });
+        }
+      });
+
+      // Master requests to delete a site
+      socket.on('delete-site', (data: { siteId: string }, callback: (res: { success: boolean }) => void) => {
+        const site = siteManager.getSiteById(data.siteId);
+        const socketId = site?.socketId;
+        
+        const success = siteManager.deleteSite(data.siteId);
+        if (success) {
+          console.log(`[Socket] Site ${data.siteId} deleted from database.`);
+          
+          // Disconnect active agent socket if online so it doesn't immediately re-register
+          if (socketId) {
+            const agentSocket = io.sockets.sockets.get(socketId);
+            if (agentSocket) {
+              console.log(`[Socket] Disconnecting deleted active agent socket: ${socketId}`);
+              agentSocket.disconnect();
+            }
+          }
+          
+          io.to('masters').emit('sites-list', siteManager.getSitesList());
+          if (callback) callback({ success: true });
+        } else {
+          if (callback) callback({ success: false });
         }
       });
     }

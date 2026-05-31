@@ -7,10 +7,23 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="SocketIOClient" Version="4.0.4" />
+  </ItemGroup>
+
+  <!-- Native binaries required for Layer 3 VPN tunnel (tun2socks + wintun) -->
+  <ItemGroup>
+    <Content Include="native\tun2socks.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>tun2socks.exe</Link>
+    </Content>
+    <Content Include="native\wintun.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>wintun.dll</Link>
+    </Content>
   </ItemGroup>
 
 </Project>

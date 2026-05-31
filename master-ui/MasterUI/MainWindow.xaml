@@ -76,18 +76,95 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <!-- Dark Context Menu Style (bypasses Windows default theme white icon column) -->
+        <Style x:Key="DarkContextMenu" TargetType="ContextMenu">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="HasDropShadow" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Name="Border" 
+                                Background="#1E1E1E" 
+                                BorderBrush="#2D2D30" 
+                                BorderThickness="1"
+                                CornerRadius="5"
+                                Padding="4">
+                            <StackPanel IsItemsHost="True" 
+                                        KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Dark Context Menu MenuItem Style (removes white icon border box) -->
+        <Style x:Key="DarkMenuItem" TargetType="MenuItem">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Foreground" Value="#E5E5E5"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="ItemBorder" Background="Transparent" Padding="10,7">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="22"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <!-- Icon column: no border, no background -->
+                                <ContentPresenter Grid.Column="0"
+                                                  ContentSource="Icon"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                                <!-- Header text -->
+                                <ContentPresenter Grid.Column="1"
+                                                  ContentSource="Header"
+                                                  VerticalAlignment="Center"
+                                                  Margin="6,0,0,0"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#3F3F46"/>
+                                <Setter TargetName="ItemBorder" Property="CornerRadius" Value="3"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#555555"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Dark Separator Style -->
+        <Style x:Key="DarkSeparator" TargetType="Separator">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Separator">
+                        <Border Height="1" Background="#2D2D30" Margin="8,3"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
             <!-- Sidebar (Sites) -->
-            <ColumnDefinition Width="280"/>
+            <ColumnDefinition x:Name="SidebarColumn" Width="280" MinWidth="200" MaxWidth="500"/>
+            <!-- Splitter -->
+            <ColumnDefinition Width="Auto"/>
             <!-- Main Content -->
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
         <!-- SIDEBAR -->
-        <Border Grid.Column="0" Background="{StaticResource BgPanel}" BorderBrush="#252526" BorderThickness="0,0,1,0">
+        <Border x:Name="SidebarPanel" Grid.Column="0" Background="{StaticResource BgPanel}" BorderBrush="#252526" BorderThickness="0,0,1,0">
             <Grid Margin="15">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -97,10 +174,33 @@
                 </Grid.RowDefinitions>
 
                 <!-- Brand Header -->
-                <StackPanel Grid.Row="0" Margin="0,0,0,15">
-                    <TextBlock Text="BARIŞ" FontSize="20" FontWeight="Black" Foreground="{StaticResource AccentBlue}"/>
-                    <TextBlock Text="Technical Service Suite" FontSize="11" Foreground="{StaticResource TextMuted}" Margin="0,2,0,0"/>
-                </StackPanel>
+                <Grid Grid.Row="0" Margin="0,0,0,15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="BARIŞ" FontSize="20" FontWeight="Black" Foreground="{StaticResource AccentBlue}"/>
+                        <TextBlock Text="Technical Service Suite" FontSize="11" Foreground="{StaticResource TextMuted}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <Button x:Name="CollapseSidebarBtn" Grid.Column="1" Click="ToggleSidebar_Click"
+                            Background="Transparent" Foreground="{StaticResource TextMuted}" BorderThickness="0"
+                            FontSize="16" Cursor="Hand" VerticalAlignment="Top"
+                            ToolTip="Paneli Gizle" Content="«" Padding="4,2">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="BtnBorder" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="BtnBorder" Property="Background" Value="#2D2D30"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
 
                 <Separator Grid.Row="1" Background="#2D2D30" Margin="0,0,0,15"/>
 
@@ -140,19 +240,46 @@
                                         </ControlTemplate>
                                     </Setter.Value>
                                 </Setter>
-                                <Setter Property="ContextMenu">
-                                    <Setter.Value>
-                                        <ContextMenu Background="#1E1E1E" Foreground="White" BorderBrush="#2D2D30">
-                                            <MenuItem Header="Sadece Ekrana Bağlan" Click="MenuConnectScreenOnly_Click"/>
-                                            <MenuItem Header="Ekran ve PLC Tüneli Aç" Click="MenuConnectWithTunnel_Click"/>
-                                        </ContextMenu>
-                                    </Setter.Value>
-                                </Setter>
                             </Style>
                         </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Grid>
+                                <Grid Background="Transparent">
+                                    <Grid.ContextMenu>
+                                        <ContextMenu Style="{StaticResource DarkContextMenu}">
+                                            <MenuItem Header="Sadece Ekrana Bağlan" Click="MenuConnectScreenOnly_Click" Style="{StaticResource DarkMenuItem}">
+                                                <MenuItem.Icon>
+                                                    <TextBlock Text="●" Foreground="#007ACC" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Sadece PLC Tüneli Aç" Click="MenuConnectTunnelOnly_Click" Style="{StaticResource DarkMenuItem}">
+                                                <MenuItem.Icon>
+                                                    <TextBlock Text="●" Foreground="#107C41" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator Style="{StaticResource DarkSeparator}"/>
+                                            <MenuItem Header="Ekran ve PLC Tüneli Aç" Click="MenuConnectWithTunnel_Click" Style="{StaticResource DarkMenuItem}">
+                                                <MenuItem.Icon>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="●" Foreground="#007ACC" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="●" Foreground="#107C41" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator Style="{StaticResource DarkSeparator}"/>
+                                            <MenuItem Header="Şantiyeyi Yeniden Adlandır" Click="MenuRenameSite_Click" Style="{StaticResource DarkMenuItem}">
+                                                <MenuItem.Icon>
+                                                    <TextBlock Text="✎" Foreground="#8A8A8A" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator Style="{StaticResource DarkSeparator}"/>
+                                            <MenuItem Header="Şantiyeyi Sistemden Sil" Click="MenuDeleteSite_Click" Style="{StaticResource DarkMenuItem}">
+                                                <MenuItem.Icon>
+                                                    <TextBlock Text="✕" Foreground="#D9381E" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Grid.ContextMenu>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
@@ -175,6 +302,7 @@
                                     <StackPanel Grid.Column="1">
                                         <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Foreground="White"/>
                                         <TextBlock Text="{Binding RustDeskId, StringFormat='ID: {0}'}" FontSize="11" Foreground="{StaticResource TextMuted}" Margin="0,2,0,0"/>
+                                        <TextBlock Text="{Binding LocationString}" FontSize="10" Foreground="#007ACC" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
                                 </Grid>
                             </DataTemplate>
@@ -192,28 +320,58 @@
             </Grid>
         </Border>
 
+        <!-- GRID SPLITTER (Resize Sidebar) -->
+        <GridSplitter x:Name="SidebarSplitter" Grid.Column="1" Width="4" 
+                      Background="#252526" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                      Cursor="SizeWE"/>
+
         <!-- MAIN WINDOW VIEWPORT -->
-        <Grid Grid.Column="1" Background="{StaticResource BgDark}">
+        <Grid Grid.Column="2" Background="{StaticResource BgDark}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- UPPER BAR (Active Connection Status / Header) -->
-            <Border Grid.Row="0" Background="{StaticResource BgPanel}" BorderBrush="#252526" BorderThickness="0,0,0,1" Padding="20,15">
+            <!-- UPPER BAR (Compact Header) -->
+            <Border Grid.Row="0" Background="{StaticResource BgPanel}" BorderBrush="#252526" BorderThickness="0,0,0,1" Padding="12,8">
                 <Grid>
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                        <TextBlock x:Name="ActiveConnectionHeader" Text="Tünel ve Uzak Masaüstü Boşta" FontSize="16" FontWeight="SemiBold" Foreground="White"/>
-                        <TextBlock x:Name="ActiveConnectionSubheader" Text="Bağlantı kurmak için sol listeden aktif bir şantiyeye çift tıklayın." FontSize="12" Foreground="{StaticResource TextMuted}" Margin="0,2,0,0"/>
-                    </StackPanel>
+                    <!-- Expand sidebar button (visible only when sidebar is collapsed) -->
+                    <Button x:Name="ExpandSidebarBtn" Grid.Column="0" Click="ToggleSidebar_Click"
+                            Background="#2D2D30" Foreground="{StaticResource TextLight}" BorderThickness="0"
+                            FontSize="14" Cursor="Hand" Margin="0,0,10,0"
+                            Visibility="Collapsed" ToolTip="Şantiye Panelini Aç" Content="☰" Padding="8,4">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="BtnBorder" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="BtnBorder" Property="Background" Value="#3F3F46"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
 
-                    <!-- Huge OTURUMU KAPAT button -->
-                    <Button x:Name="DisconnectButton" Grid.Column="1" Style="{StaticResource DisconnectButton}" 
+                    <TextBlock x:Name="ActiveConnectionHeader" Grid.Column="1" 
+                               Text="Boşta" 
+                               FontSize="14" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
+                    
+                    <TextBlock x:Name="ActiveConnectionSubheader" Grid.Column="2" 
+                               Text="Bağlanmak için bir şantiye seçin" 
+                               FontSize="11" Foreground="{StaticResource TextMuted}" 
+                               Margin="12,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+
+                    <!-- OTURUMU KAPAT button -->
+                    <Button x:Name="DisconnectButton" Grid.Column="3" Style="{StaticResource DisconnectButton}" 
                             Content="OTURUMU KAPAT" Visibility="Collapsed" Click="DisconnectButton_Click"/>
                 </Grid>
             </Border>
@@ -272,7 +430,7 @@
         </Grid>
 
         <!-- ADMIN EXCLUSION WARNING OVERLAY -->
-        <Grid x:Name="AdminWarningOverlay" Grid.ColumnSpan="2" Background="#D9000000" Visibility="Collapsed">
+        <Grid x:Name="AdminWarningOverlay" Grid.ColumnSpan="3" Background="#D9000000" Visibility="Collapsed">
             <Border Background="#1E1E1E" BorderBrush="{StaticResource AccentRed}" BorderThickness="2" 
                     CornerRadius="8" Width="480" Height="260" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="30">
                 <Grid>

@@ -23,6 +23,8 @@ namespace MasterUI
         private readonly string _authToken = "BarisServis2026!";
         private string? _activeSiteId;
         private bool _isConnecting = false;
+        private double _lastSidebarWidth = 280;
+        private bool _sidebarCollapsed = false;
 
         public ObservableCollection<SiteUI> Sites { get; } = new();
 
@@ -90,6 +92,30 @@ namespace MasterUI
             System.Windows.Application.Current.Shutdown();
         }
 
+        private void ToggleSidebar_Click(object sender, RoutedEventArgs e)
+        {
+            if (_sidebarCollapsed)
+            {
+                // Expand
+                SidebarColumn.MinWidth = 200;
+                SidebarColumn.Width = new GridLength(_lastSidebarWidth);
+                SidebarPanel.Visibility = Visibility.Visible;
+                SidebarSplitter.Visibility = Visibility.Visible;
+                ExpandSidebarBtn.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                // Collapse
+                _lastSidebarWidth = SidebarColumn.ActualWidth;
+                SidebarColumn.MinWidth = 0;
+                SidebarColumn.Width = new GridLength(0);
+                SidebarPanel.Visibility = Visibility.Collapsed;
+                SidebarSplitter.Visibility = Visibility.Collapsed;
+                ExpandSidebarBtn.Visibility = Visibility.Visible;
+            }
+            _sidebarCollapsed = !_sidebarCollapsed;
+        }
+
         private void Log(string message)
         {
             Dispatcher.Invoke(() =>
@@ -112,7 +138,12 @@ namespace MasterUI
                         Name = site.name,
                         Status = site.status,
                         RustDeskId = site.rustDeskId ?? "Yok",
-                        RustDeskPassword = site.rustDeskPassword ?? ""
+                        RustDeskPassword = site.rustDeskPassword ?? "",
+                        Country = site.location?.country ?? "",
+                        City = site.location?.city ?? "",
+                        Lat = site.location?.lat,
+                        Lon = site.location?.lon,
+                        Isp = site.location?.isp ?? ""
                     });
                 }
             });
@@ -123,29 +154,86 @@ namespace MasterUI
             var selectedSite = SitesListBox.SelectedItem as SiteUI;
             if (selectedSite != null)
             {
-                await StartConnectionAsync(selectedSite, enableTunnel: false);
+                await StartConnectionAsync(selectedSite, enableTunnel: false, enableScreen: true);
             }
         }
 
         private async void MenuConnectScreenOnly_Click(object sender, RoutedEventArgs e)
         {
-            var selectedSite = SitesListBox.SelectedItem as SiteUI;
+            var selectedSite = GetSiteFromContextMenu(sender);
             if (selectedSite != null)
             {
-                await StartConnectionAsync(selectedSite, enableTunnel: false);
+                await StartConnectionAsync(selectedSite, enableTunnel: false, enableScreen: true);
+            }
+        }
+
+        private async void MenuConnectTunnelOnly_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedSite = GetSiteFromContextMenu(sender);
+            if (selectedSite != null)
+            {
+                await StartConnectionAsync(selectedSite, enableTunnel: true, enableScreen: false);
             }
         }
 
         private async void MenuConnectWithTunnel_Click(object sender, RoutedEventArgs e)
         {
-            var selectedSite = SitesListBox.SelectedItem as SiteUI;
+            var selectedSite = GetSiteFromContextMenu(sender);
             if (selectedSite != null)
             {
-                await StartConnectionAsync(selectedSite, enableTunnel: true);
+                await StartConnectionAsync(selectedSite, enableTunnel: true, enableScreen: true);
             }
         }
 
-        private async Task StartConnectionAsync(SiteUI selectedSite, bool enableTunnel)
+        private async void MenuRenameSite_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedSite = GetSiteFromContextMenu(sender);
+            if (selectedSite != null)
+            {
+                var dialog = new RenameDialog(selectedSite.Name)
+                {
+                    Owner = this
+                };
+
+                if (dialog.ShowDialog() == true)
+                {
+                    string newName = dialog.NewName;
+                    Log($"[Arayüz] Şantiye '{selectedSite.Name}' ismi '{newName}' olarak değiştiriliyor...");
+                    await _orchestrator!.RenameSiteAsync(selectedSite.Id, newName);
+                }
+            }
+        }
+
+        private async void MenuDeleteSite_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedSite = GetSiteFromContextMenu(sender);
+            if (selectedSite != null)
+            {
+                var result = System.Windows.MessageBox.Show(
+                    $"'{selectedSite.Name}' şantiyesini sistemden silmek istediğinize emin misiniz?\n\n" +
+                    "Not: Eğer şantiye ajanı aktif ise ilk bağlantı denemesinde sistemde otomatik olarak yeniden oluşturulacaktır.",
+                    "Şantiyeyi Sil",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question
+                );
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    Log($"[Arayüz] Şantiye '{selectedSite.Name}' sistemden siliniyor...");
+                    await _orchestrator!.DeleteSiteAsync(selectedSite.Id);
+                }
+            }
+        }
+
+        private SiteUI? GetSiteFromContextMenu(object sender)
+        {
+            var menuItem = sender as MenuItem;
+            var contextMenu = menuItem?.Parent as ContextMenu;
+            var target = contextMenu?.PlacementTarget as FrameworkElement;
+            return target?.DataContext as SiteUI ?? SitesListBox.SelectedItem as SiteUI;
+        }
+
+        private async Task StartConnectionAsync(SiteUI selectedSite, bool enableTunnel, bool enableScreen)
         {
             if (_isConnecting || _activeSiteId != null) return;
 
@@ -157,10 +245,18 @@ namespace MasterUI
 
             _isConnecting = true;
             _activeSiteId = selectedSite.Id;
-            Log($"[Bağlantı] {selectedSite.Name} şantiyesine bağlanılıyor (Tünel: {(enableTunnel ? "Aktif" : "Pasif")})...");
+
+            string modeLabel = (enableTunnel, enableScreen) switch
+            {
+                (true, true) => "Ekran + Tünel",
+                (true, false) => "Sadece Tünel",
+                (false, true) => "Sadece Ekran",
+                _ => "Bilinmeyen Mod"
+            };
+            Log($"[Bağlantı] {selectedSite.Name} şantiyesine bağlanılıyor ({modeLabel})...");
 
             ActiveConnectionHeader.Text = $"{selectedSite.Name} Şantiyesine Bağlanılıyor...";
-            ActiveConnectionSubheader.Text = "Uzak masaüstü oturumu başlatılıyor, lütfen bekleyin...";
+            ActiveConnectionSubheader.Text = $"{modeLabel} oturumu başlatılıyor, lütfen bekleyin...";
 
             try
             {
@@ -173,15 +269,14 @@ namespace MasterUI
 
                 Log("[Bağlantı] Sunucu el sıkışması tamamlandı.");
 
+                // 2. Start tunnel if requested
                 if (enableTunnel)
                 {
                     Log("[Bağlantı] SOCKS5 ve Wintun ağ tüneli başlatılıyor...");
-                    // 2. Start Local SOCKS5 Proxy
                     _socksServer = new LocalSocksServer(1080, _orchestrator, selectedSite.Id);
                     _socksServer.OnLog += Log;
                     _socksServer.Start();
 
-                    // 3. Start Wintun / tun2socks Routing
                     _wintunManager = new WintunManager();
                     _wintunManager.OnLog += Log;
                     
@@ -192,28 +287,42 @@ namespace MasterUI
                     }
                 }
 
-                // 4. Update UI Header status
+                // 3. Update UI Header status
+                string statusText = (enableTunnel, enableScreen) switch
+                {
+                    (true, true) => "IP Tüneli Aktif (192.168.0.0/24) | Uzak Masaüstü Aktif",
+                    (true, false) => "IP Tüneli Aktif (192.168.0.0/24) | Ekran Kapalı",
+                    (false, true) => "Sadece Ekran Paylaşımı Aktif (Ağ Tüneli Kapalı)",
+                    _ => ""
+                };
+
                 Dispatcher.Invoke(() =>
                 {
                     ActiveConnectionHeader.Text = $"BAĞLI: {selectedSite.Name}";
-                    ActiveConnectionSubheader.Text = enableTunnel 
-                        ? "IP Tüneli Aktif (192.168.0.0/24) | SOCKS5 Tüneli Aktif (Port 1080)" 
-                        : "Sadece Ekran Paylaşımı Aktif (Ağ Tüneli Kapalı)";
+                    ActiveConnectionSubheader.Text = statusText;
                     DisconnectButton.Visibility = Visibility.Visible;
                 });
 
-                // 5. Connect and Embed RustDesk Client
-                _rustDeskHost = new RustDeskHost();
-                _rustDeskHost.OnLog += Log;
-                RemoteDesktopContainer.Children.Add(_rustDeskHost);
-
-                // Switch to Remote Desktop Tab
-                MainTabControl.SelectedIndex = 1;
-
-                bool rustDeskConnected = await _rustDeskHost.ConnectAndEmbedAsync(selectedSite.RustDeskId, selectedSite.RustDeskPassword);
-                if (!rustDeskConnected)
+                // 4. Connect and Embed RustDesk Client (only if screen requested)
+                if (enableScreen)
                 {
-                    Log("[RustDeskHost] WARNING: Gömülü uzak masaüstü bağlantısı kurulamadı. Ekranı yenilemek için tüneli açık tutabilirsiniz.");
+                    _rustDeskHost = new RustDeskHost();
+                    _rustDeskHost.OnLog += Log;
+                    RemoteDesktopContainer.Children.Add(_rustDeskHost);
+
+                    // Switch to Remote Desktop Tab
+                    MainTabControl.SelectedIndex = 1;
+
+                    bool rustDeskConnected = await _rustDeskHost.ConnectAndEmbedAsync(selectedSite.RustDeskId, selectedSite.RustDeskPassword);
+                    if (!rustDeskConnected)
+                    {
+                        Log("[RustDeskHost] WARNING: Gömülü uzak masaüstü bağlantısı kurulamadı.");
+                    }
+                }
+                else
+                {
+                    // Tunnel-only mode: stay on dashboard tab, show log
+                    Log("[Bağlantı] Sadece tünel modu aktif. TIA Portal veya CX-Programmer'dan 192.168.0.1 adresine bağlanabilirsiniz.");
                 }
             }
             catch (Exception ex)
@@ -249,8 +358,8 @@ namespace MasterUI
         {
             Dispatcher.Invoke(() =>
             {
-                ActiveConnectionHeader.Text = "Tünel ve Uzak Masaüstü Boşta";
-                ActiveConnectionSubheader.Text = "Bağlantı kurmak için sol listeden aktif bir şantiyeye çift tıklayın.";
+                ActiveConnectionHeader.Text = "Boşta";
+                ActiveConnectionSubheader.Text = "Bağlanmak için bir şantiye seçin";
                 DisconnectButton.Visibility = Visibility.Collapsed;
                 
                 // Clear RustDesk window

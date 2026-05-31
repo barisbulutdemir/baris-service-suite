@@ -33,6 +33,20 @@ namespace MasterUI.Controls
         [DllImport("user32.dll", EntryPoint = "SetWindowPos")]
         private static extern bool SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumWindowsCallback lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+
+        private delegate bool EnumWindowsCallback(IntPtr hWnd, IntPtr lParam);
+
         private const int GWL_STYLE = -16;
         private const int WS_POPUP = 0x800000;
         private const int WS_CAPTION = 0xC00000;
@@ -93,7 +107,7 @@ namespace MasterUI.Controls
                 var psi = new ProcessStartInfo
                 {
                     FileName = rustDeskPath,
-                    Arguments = $"--peer {rustDeskId} --password {password}",
+                    Arguments = $"--connect {rustDeskId} --password {password} --new",
                     UseShellExecute = false,
                     CreateNoWindow = false // Windows needs to render it so we can grab the handle
                 };
@@ -111,7 +125,7 @@ namespace MasterUI.Controls
                 while (elapsed < 10000 && !_cts.Token.IsCancellationRequested) // 10 seconds timeout
                 {
                     _rustDeskProcess.Refresh();
-                    IntPtr hwnd = FindRustDeskWindow();
+                    IntPtr hwnd = FindRustDeskWindow(rustDeskId);
                     if (hwnd != IntPtr.Zero)
                     {
                         _rustDeskHwnd = hwnd;
@@ -155,41 +169,56 @@ namespace MasterUI.Controls
             }
         }
 
-        private IntPtr FindRustDeskWindow()
+        private IntPtr FindRustDeskWindow(string rustDeskId)
         {
-            // First try Process's main handle
-            if (_rustDeskProcess != null && _rustDeskProcess.MainWindowHandle != IntPtr.Zero)
-            {
-                return _rustDeskProcess.MainWindowHandle;
-            }
+            IntPtr foundHwnd = IntPtr.Zero;
+            IntPtr backupHwnd = IntPtr.Zero;
 
-            // Fallback: search windows matching the process or title
-            // Sciter is the UI library used by RustDesk client, window class names are often "Sciter" or similar.
-            // We can also find by finding window by title:
-            // "RustDesk" is in the title, and it is run by our process ID.
-            IntPtr found = IntPtr.Zero;
-            EnumThreadWindowsCallback callback = (IntPtr hwnd, IntPtr lParam) =>
+            EnumWindows((hwnd, lParam) =>
             {
-                found = hwnd;
-                return false; // Stop enumeration
-            };
-
-            if (_rustDeskProcess != null)
-            {
-                foreach (ProcessThread thread in _rustDeskProcess.Threads)
+                if (IsWindowVisible(hwnd))
                 {
-                    EnumThreadWindows(thread.Id, callback, IntPtr.Zero);
-                    if (found != IntPtr.Zero) return found;
+                    GetWindowThreadProcessId(hwnd, out uint pid);
+                    try
+                    {
+                        using (var proc = Process.GetProcessById((int)pid))
+                        {
+                            if (proc.ProcessName.Equals("rustdesk", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var sb = new System.Text.StringBuilder(256);
+                                GetWindowText(hwnd, sb, sb.Capacity);
+                                string title = sb.ToString();
+
+                                string cleanTitle = title.Replace(" ", "");
+                                string cleanId = rustDeskId.Replace(" ", "");
+
+                                if (!string.IsNullOrEmpty(cleanId) && cleanTitle.Contains(cleanId))
+                                {
+                                    foundHwnd = hwnd;
+                                    return false; // Stop enumeration
+                                }
+
+                                // Fallback: any visible window of rustdesk that isn't the main control window or settings
+                                if (!string.IsNullOrEmpty(title) &&
+                                    !title.Equals("RustDesk", StringComparison.OrdinalIgnoreCase) &&
+                                    !title.Contains("Administrator") &&
+                                    !title.Contains("Service"))
+                                {
+                                    backupHwnd = hwnd;
+                                }
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore process access or system process errors
+                    }
                 }
-            }
+                return true; // Continue enumeration
+            }, IntPtr.Zero);
 
-            return IntPtr.Zero;
+            return foundHwnd != IntPtr.Zero ? foundHwnd : backupHwnd;
         }
-
-        private delegate bool EnumThreadWindowsCallback(IntPtr hwnd, IntPtr lParam);
-
-        [DllImport("user32.dll")]
-        private static extern bool EnumThreadWindows(int dwThreadId, EnumThreadWindowsCallback lpfn, IntPtr lParam);
 
         private void ResizeEmbeddedWindow()
         {

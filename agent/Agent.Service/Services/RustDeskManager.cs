@@ -69,13 +69,21 @@ namespace Agent.Service.Services
                 {
                     if (process != null)
                     {
-                        string output = process.StandardOutput.ReadToEnd().Trim();
-                        process.WaitForExit(3000);
-                        if (!string.IsNullOrEmpty(output) && !output.Contains("Error"))
+                        // Wait first, then read to prevent deadlock
+                        if (process.WaitForExit(3000))
                         {
-                            _cachedId = output;
-                            _logger.LogInformation($"Retrieved RustDesk ID: {_cachedId}");
-                            return _cachedId;
+                            string output = process.StandardOutput.ReadToEnd().Trim();
+                            if (!string.IsNullOrEmpty(output) && !output.Contains("Error"))
+                            {
+                                _cachedId = output;
+                                _logger.LogInformation($"Retrieved RustDesk ID: {_cachedId}");
+                                return _cachedId;
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("RustDesk ID retrieval timed out.");
+                            try { process.Kill(); } catch { }
                         }
                     }
                 }
@@ -103,8 +111,8 @@ namespace Agent.Service.Services
                     FileName = _rustDeskPath,
                     Arguments = $"--password {_cachedPassword}",
                     UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
+                    RedirectStandardOutput = false, // Do not redirect standard output if not reading it
+                    RedirectStandardError = false,
                     CreateNoWindow = true
                 };
 
@@ -112,8 +120,22 @@ namespace Agent.Service.Services
                 {
                     if (process != null)
                     {
-                        process.WaitForExit(3000);
-                        _logger.LogInformation("RustDesk connection password set successfully.");
+                        if (process.WaitForExit(3000))
+                        {
+                            if (process.ExitCode != 0)
+                            {
+                                _logger.LogError($"Failed to set RustDesk password. Exit code: {process.ExitCode}. Please ensure the Agent is running with Administrator/elevated privileges.");
+                            }
+                            else
+                            {
+                                _logger.LogInformation("RustDesk connection password set successfully.");
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("RustDesk password configuration timed out.");
+                            try { process.Kill(); } catch { }
+                        }
                     }
                 }
             }

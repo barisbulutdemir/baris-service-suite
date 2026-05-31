@@ -42,7 +42,7 @@ namespace MasterUI.Services
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = tun2socksPath,
-                    Arguments = $"-device wintun://{_adapterName} -proxy socks5://127.0.0.1:{_socksPort} -loglevel info",
+                    Arguments = $"-device tun://{_adapterName} -proxy socks5://127.0.0.1:{_socksPort} -loglevel info",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
