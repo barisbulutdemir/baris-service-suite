@@ -85,6 +85,12 @@ window.addEventListener('DOMContentLoaded', () => {
         handleIncomingCallRequest(data.from, data.fromName);
     });
 
+    socket.on('rtc-call-accepted', async (data) => {
+        console.log("RTC: Call accepted by peer. Establishing PeerConnection...");
+        callStatusText.textContent = "Bağlantı kuruluyor...";
+        await setupRtcConnection(callingSocketId, true);
+    });
+
     socket.on('rtc-offer', async (data) => {
         console.log("RTC: Offer received from " + data.from);
         await handleRtcOffer(data.from, data.offer);
@@ -257,8 +263,7 @@ function dialTargetUser(targetSocketId, pin) {
             // Start capturing local media tracks
             await initializeLocalMedia();
 
-            // Establish RTC connection as Caller (creates SDP Offer)
-            await setupRtcConnection(targetSocketId, true);
+            // Wait for callee to click "Accept" (which will trigger rtc-call-accepted socket event)
         } else {
             if (targetCallUser && targetCallUser.hasPin) {
                 // Keep modal open and show error if PIN was wrong
@@ -306,8 +311,8 @@ async function acceptCall() {
     // Start capturing local media
     await initializeLocalMedia();
 
-    // Establish RTC connection as Callee (will wait for Caller's SDP Offer)
-    await setupRtcConnection(callingSocketId, false);
+    // Notify caller that we accepted the call
+    socket.emit('rtc-call-accepted', { to: callingSocketId });
 }
 
 // ==========================================================================

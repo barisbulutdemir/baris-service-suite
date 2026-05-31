@@ -324,6 +324,12 @@ export function setupSocketHandler(io: Server, siteManager: SiteManager, authTok
       });
 
       // WebRTC Signal Forwarding Relays
+      socket.on('rtc-call-accepted', (data: { to: string }) => {
+        io.to(data.to).emit('rtc-call-accepted', {
+          from: socket.id
+        });
+      });
+
       socket.on('rtc-offer', (data: { to: string; offer: any }) => {
         io.to(data.to).emit('rtc-offer', {
           from: socket.id,
