@@ -20,8 +20,18 @@ export interface SiteInfo {
   };
 }
 
+export interface ChatUser {
+  id: string; // Socket ID
+  name: string;
+  hasPin: boolean;
+  pin?: string;
+}
+
 export class SiteManager {
   private sites: Map<string, SiteInfo> = new Map();
+  private chatUsers: Map<string, ChatUser> = new Map();
+  private chatSystemEnabled: boolean = true;
+  private readonly mainPassword = '632536';
 
   constructor() {
     this.loadSites();
@@ -59,6 +69,56 @@ export class SiteManager {
     }
   }
 
+  // Web Chat System Controls
+  public isChatSystemEnabled(): boolean {
+    return this.chatSystemEnabled;
+  }
+
+  public setChatSystemEnabled(enabled: boolean) {
+    this.chatSystemEnabled = enabled;
+    console.log(`[SiteManager] Web Görüntülü Görüşme Sistemi: ${enabled ? 'AKTİF' : 'PASİF'}`);
+  }
+
+  public verifyMainPassword(password: string): boolean {
+    return password === this.mainPassword;
+  }
+
+  // Web Chat User Directory Management
+  public addChatUser(id: string, name: string, pin?: string): ChatUser {
+    const user: ChatUser = {
+      id,
+      name,
+      hasPin: !stringIsEmpty(pin),
+      pin: pin || undefined
+    };
+    this.chatUsers.set(id, user);
+    console.log(`[SiteManager] Lobi kullanıcısı eklendi: ${name} (${id}), PIN Koruması: ${user.hasPin ? 'EVET' : 'HAYIR'}`);
+    return user;
+  }
+
+  public removeChatUser(id: string): ChatUser | null {
+    const user = this.chatUsers.get(id);
+    if (user) {
+      this.chatUsers.delete(id);
+      console.log(`[SiteManager] Lobi kullanıcısı ayrıldı: ${user.name} (${id})`);
+      return user;
+    }
+    return null;
+  }
+
+  public getChatUsersList(): { id: string; name: string; hasPin: boolean }[] {
+    return Array.from(this.chatUsers.values()).map(u => ({
+      id: u.id,
+      name: u.name,
+      hasPin: u.hasPin
+    }));
+  }
+
+  public getChatUserById(id: string): ChatUser | undefined {
+    return this.chatUsers.get(id);
+  }
+
+  // Site Agent Directory Management
   public registerAgent(
     id: string, 
     name: string, 
@@ -131,4 +191,8 @@ export class SiteManager {
     }
     return undefined;
   }
+}
+
+function stringIsEmpty(str: any): boolean {
+  return !str || str.toString().trim().length === 0;
 }

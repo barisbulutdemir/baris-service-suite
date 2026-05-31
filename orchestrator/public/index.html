@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barış Servis - Görüntülü Görüşme Sistemi</title>
+    <meta name="description" content="Barış Teknik Servis Suite için güvenli ve gerçek zamanlı görüntülü/sesli konuşma sistemi.">
+    <link rel="stylesheet" href="index.css">
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <!-- Socket.io -->
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <!-- Glassmorphic Background Circles -->
+    <div class="circle circle-1"></div>
+    <div class="circle circle-2"></div>
+
+    <!-- MAIN APP CONTAINER -->
+    <div class="app-container" id="appContainer">
+        
+        <!-- ================= PANEL 1: LOGIN ================= -->
+        <section class="panel login-panel active" id="loginPanel">
+            <header class="panel-header">
+                <h1 class="brand-title">BARIŞ</h1>
+                <p class="brand-subtitle">Görüntülü Görüşme Sistemi</p>
+            </header>
+            
+            <form class="glass-form" id="loginForm" onsubmit="event.preventDefault(); handleLogin();">
+                <div class="input-group">
+                    <label for="mainPassword">Ana Giriş Şifresi</label>
+                    <input type="password" id="mainPassword" required placeholder="••••••" autocomplete="current-password">
+                </div>
+                
+                <div class="input-group">
+                    <label for="userName">Adınız Soyadınız</label>
+                    <input type="text" id="userName" required placeholder="Örn: Ahmet Yılmaz" autocomplete="name">
+                </div>
+
+                <div class="input-group">
+                    <label for="personalPin">Kişisel PIN Kodunuz (İsteğe Bağlı)</label>
+                    <span class="input-hint">Diğer kullanıcılar sizi ararken bu şifreyi girmelidir.</span>
+                    <input type="password" id="personalPin" placeholder="Örn: 1234" maxlength="6" autocomplete="new-password">
+                </div>
+
+                <button type="submit" class="premium-btn" id="loginBtn">Sisteme Giriş Yap</button>
+                <p class="error-msg" id="loginError"></p>
+            </form>
+        </section>
+
+        <!-- ================= PANEL 2: LOBBY ================= -->
+        <section class="panel lobby-panel" id="lobbyPanel">
+            <header class="panel-header lobby-header">
+                <div class="user-info">
+                    <div class="user-avatar" id="myAvatar">U</div>
+                    <div>
+                        <h2 id="myDisplayName">Kullanıcı</h2>
+                        <span class="status-badge green">Lobide Çevrimdışı/Hazır</span>
+                    </div>
+                </div>
+                <button class="icon-btn logout-btn" onclick="handleLogout()" title="Sistemden Çıkış">✕</button>
+            </header>
+
+            <div class="lobby-content">
+                <h3 class="section-title">ÇEVRİMİÇİ KULLANICILAR</h3>
+                <div class="users-list-container">
+                    <ul class="users-list" id="usersList">
+                        <!-- Dynamic list items will be injected here -->
+                        <li class="empty-list-msg">Lobide başka kullanıcı bulunmuyor...</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= PANEL 3: VIDEO CALL ================= -->
+        <section class="panel call-panel" id="callPanel">
+            <!-- Fullscreen Remote Video -->
+            <div class="video-wrapper">
+                <video id="remoteVideo" autoplay playsinline></video>
+                <div class="remote-placeholder" id="remotePlaceholder">
+                    <div class="spinner"></div>
+                    <p id="callStatusText">Bağlantı kuruluyor...</p>
+                </div>
+            </div>
+
+            <!-- Floating Local Video (Picture in Picture) -->
+            <div class="local-video-pip" id="localVideoPip">
+                <video id="localVideo" autoplay playsinline muted></video>
+            </div>
+
+            <!-- Floating Call Controls -->
+            <div class="call-controls-bar">
+                <button class="control-btn" id="toggleMicBtn" onclick="toggleMuteMic()" title="Mikrofonu Kapat">
+                    <svg viewBox="0 0 24 24" class="icon"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+                </button>
+                
+                <button class="control-btn hangup-btn" id="hangUpBtn" onclick="hangUpCall()" title="Görüşmeyi Sonlandır">
+                    <svg viewBox="0 0 24 24" class="icon"><path d="M21 9.9c-1.4 0-2.8-.2-4.2-.7-.4-.1-.8 0-1.1.3L13 11.9c-3.2-1.7-5.9-4.3-7.6-7.6L7.8 1.9c.3-.3.4-.7.3-1.1C7.6.4 7.4 0 7 0H2.2c-.5 0-1 .4-1 1C1.2 12.1 11.9 22.8 23 22.8c.6 0 1-.5 1-1V17c0-.4-.4-.6-.8-.7-1.4-.5-2.8-.7-4.2-.7z"/></svg>
+                </button>
+
+                <button class="control-btn" id="toggleCamBtn" onclick="toggleMuteCam()" title="Kamerayı Kapat">
+                    <svg viewBox="0 0 24 24" class="icon"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                </button>
+            </div>
+            
+            <div class="caller-label" id="callerLabel">
+                <span id="callPartnerName">Bağlantı</span> ile görüşülüyor
+            </div>
+        </section>
+    </div>
+
+    <!-- ================= MODAL: CALL INCOMING ================= -->
+    <div class="modal-overlay" id="incomingCallModal">
+        <div class="glass-modal animate-bounce">
+            <div class="incoming-pulse-avatar">📞</div>
+            <h3 id="incomingCallText">Gelen Arama</h3>
+            <p>Sizinle görüntülü görüşme başlatmak istiyor.</p>
+            <div class="modal-actions">
+                <button class="modal-btn decline-btn" onclick="declineCall()">Reddet</button>
+                <button class="modal-btn accept-btn" onclick="acceptCall()">Kabul Et</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: ENTER PIN FOR CALL ================= -->
+    <div class="modal-overlay" id="pinInputModal">
+        <div class="glass-modal">
+            <h3>Güvenlik Kodu</h3>
+            <p>Aradığınız kişinin özel arama şifresini (PIN) girin:</p>
+            <form onsubmit="event.preventDefault(); submitCallPin();">
+                <input type="password" id="targetUserPinInput" placeholder="PIN Kodu" required maxlength="6" class="dialog-text-input">
+                <div class="modal-actions">
+                    <button type="button" class="modal-btn decline-btn" onclick="closePinModal()">İptal</button>
+                    <button type="submit" class="modal-btn accept-btn">Doğrula ve Ara</button>
+                </div>
+            </form>
+            <p class="error-msg" id="pinModalError"></p>
+        </div>
+    </div>
+
+    <!-- ================= SYSTEM DISABLED SCREEN ================= -->
+    <div class="system-disabled-overlay" id="systemDisabledScreen">
+        <div class="disabled-content">
+            <span class="warning-large">⚠️</span>
+            <h2>Görüşme Sistemi Pasif</h2>
+            <p>Bu sistem yönetici tarafından şu anda bakıma veya kullanıma kapatılmıştır. Lütfen daha sonra tekrar deneyin.</p>
+        </div>
+    </div>
+
+    <script src="index.js"></script>
+</body>
+</html>

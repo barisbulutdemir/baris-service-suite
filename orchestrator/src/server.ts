@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { SiteManager } from './siteManager';
 import { setupSocketHandler } from './socketHandler';
+import path from 'path';
 
 const app = express();
 const server = createServer(app);
@@ -18,6 +19,9 @@ const siteManager = new SiteManager();
 const PORT = process.env.PORT || 3000;
 const AUTH_TOKEN = process.env.AUTH_TOKEN || 'BarisServis2026!';
 
+// Serve static WebRTC client files from public folder
+app.use(express.static(path.join(process.cwd(), 'public')));
+
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', sitesCount: siteManager.getSitesList().length });
 });
@@ -28,6 +32,10 @@ app.get('/api/sites', (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   res.json(siteManager.getSitesList());
+});
+
+app.get('/api/chat/status', (req, res) => {
+  res.json({ enabled: siteManager.isChatSystemEnabled() });
 });
 
 setupSocketHandler(io, siteManager, AUTH_TOKEN);

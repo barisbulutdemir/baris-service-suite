@@ -6,6 +6,13 @@ export function setupSocketHandler(io: Server, siteManager: SiteManager, authTok
   const activeSessions = new Map<string, { masterSocketId: string; agentSocketId: string; siteId: string }>();
 
   io.use((socket: Socket, next) => {
+    const role = socket.handshake.query.role as string; // 'master', 'agent', or 'chat-user'
+    
+    // WebRTC chat users bypass the Orchestrator AuthToken, they verify inside socket connection using mainPassword
+    if (role === 'chat-user') {
+      return next();
+    }
+
     const token = socket.handshake.auth?.token || socket.handshake.headers?.['x-auth-token'];
     if (token !== authToken) {
       console.log(`[Socket] Auth failed for socket ${socket.id}`);
@@ -15,7 +22,7 @@ export function setupSocketHandler(io: Server, siteManager: SiteManager, authTok
   });
 
   io.on('connection', (socket: Socket) => {
-    const role = socket.handshake.query.role as string; // 'master' or 'agent'
+    const role = socket.handshake.query.role as string; // 'master', 'agent', or 'chat-user'
     console.log(`[Socket] Client connected: ${socket.id}, Role: ${role}`);
 
     if (role === 'agent') {
@@ -101,6 +108,9 @@ export function setupSocketHandler(io: Server, siteManager: SiteManager, authTok
       socket.join('masters');
       // Send current sites list immediately
       socket.emit('sites-list', siteManager.getSitesList());
+      
+      // Also send the current WebRTC chat system status
+      socket.emit('chat-system-status', { enabled: siteManager.isChatSystemEnabled() });
 
       socket.on('disconnect', () => {
         console.log(`[Socket] Master disconnected: ${socket.id}`);
@@ -226,6 +236,128 @@ export function setupSocketHandler(io: Server, siteManager: SiteManager, authTok
           if (callback) callback({ success: true });
         } else {
           if (callback) callback({ success: false });
+        }
+      });
+
+      // Master requests to toggle WebRTC Chat System status
+      socket.on('toggle-chat-system', (data: { enabled: boolean }) => {
+        siteManager.setChatSystemEnabled(data.enabled);
+        io.emit('chat-system-status', { enabled: data.enabled });
+
+        if (!data.enabled) {
+          console.log(`[Socket] Web Chat System disabled by Master. Disconnecting all chat lobby clients.`);
+          io.to('chat-lobby').emit('chat-system-disabled');
+          
+          // Disconnect all sockets currently in 'chat-lobby'
+          const lobbySockets = io.sockets.adapter.rooms.get('chat-lobby');
+          if (lobbySockets) {
+            for (const socketId of lobbySockets) {
+              const chatSocket = io.sockets.sockets.get(socketId);
+              if (chatSocket) {
+                console.log(`[Socket] Disconnecting chat user socket: ${socketId}`);
+                chatSocket.disconnect();
+              }
+            }
+          }
+        }
+      });
+
+    } else if (role === 'chat-user') {
+      console.log(`[Socket] Chat User connection request from socket: ${socket.id}`);
+
+      // Immediately send the current status of the chat system
+      socket.emit('chat-system-status', { enabled: siteManager.isChatSystemEnabled() });
+
+      // Event: Join Chat Lobby (authenticates with main password, registers custom user/PIN)
+      socket.on('join-chat-lobby', (data: { name: string; pin?: string; mainPassword?: string }, callback: (res: { success: boolean; error?: string }) => void) => {
+        if (!siteManager.isChatSystemEnabled()) {
+          return callback({ success: false, error: 'Görüntülü konuşma sistemi şu anda pasif durumda.' });
+        }
+
+        if (!siteManager.verifyMainPassword(data.mainPassword || '')) {
+          return callback({ success: false, error: 'Hatalı ana giriş şifresi.' });
+        }
+
+        if (!data.name || data.name.trim().length === 0) {
+          return callback({ success: false, error: 'Lütfen geçerli bir isim girin.' });
+        }
+
+        // Add user to lobby directory
+        siteManager.addChatUser(socket.id, data.name.trim(), data.pin);
+        socket.join('chat-lobby');
+
+        // Confirm join success
+        callback({ success: true });
+
+        // Notify all lobby users about the updated lobby list
+        io.to('chat-lobby').emit('chat-users-list', siteManager.getChatUsersList());
+      });
+
+      // Event: Initiate RTC call request (checks target user, verifies PIN if target user set one)
+      socket.on('rtc-call-request', (data: { to: string; pin?: string }, callback: (res: { success: boolean; error?: string }) => void) => {
+        const caller = siteManager.getChatUserById(socket.id);
+        if (!caller) {
+          return callback({ success: false, error: 'Sistemde kayıtlı değilsiniz.' });
+        }
+
+        const target = siteManager.getChatUserById(data.to);
+        if (!target) {
+          return callback({ success: false, error: 'Aradığınız kişi çevrimdışı.' });
+        }
+
+        // Verify the target's personal PIN if they have set one
+        if (target.hasPin) {
+          if (!data.pin || data.pin !== target.pin) {
+            return callback({ success: false, error: 'Hatalı Arama Şifresi (PIN).' });
+          }
+        }
+
+        console.log(`[Socket] RTC Call initialized: ${caller.name} (${socket.id}) -> ${target.name} (${data.to})`);
+        
+        // Notify target of the incoming call
+        io.to(data.to).emit('rtc-call-incoming', {
+          from: socket.id,
+          fromName: caller.name
+        });
+
+        callback({ success: true });
+      });
+
+      // WebRTC Signal Forwarding Relays
+      socket.on('rtc-offer', (data: { to: string; offer: any }) => {
+        io.to(data.to).emit('rtc-offer', {
+          from: socket.id,
+          offer: data.offer
+        });
+      });
+
+      socket.on('rtc-answer', (data: { to: string; answer: any }) => {
+        io.to(data.to).emit('rtc-answer', {
+          from: socket.id,
+          answer: data.answer
+        });
+      });
+
+      socket.on('rtc-ice-candidate', (data: { to: string; candidate: any }) => {
+        io.to(data.to).emit('rtc-ice-candidate', {
+          from: socket.id,
+          candidate: data.candidate
+        });
+      });
+
+      socket.on('rtc-hangup', (data: { to: string }) => {
+        io.to(data.to).emit('rtc-hangup', {
+          from: socket.id
+        });
+      });
+
+      socket.on('disconnect', () => {
+        const user = siteManager.removeChatUser(socket.id);
+        if (user) {
+          // Tell target peer they are calling/connected to that the user hung up
+          socket.to('chat-lobby').emit('rtc-hangup', { from: socket.id });
+          // Update the lobby list for everyone else
+          io.to('chat-lobby').emit('chat-users-list', siteManager.getChatUsersList());
         }
       });
     }

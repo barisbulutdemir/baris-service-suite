@@ -25,6 +25,7 @@ namespace MasterUI
         private bool _isConnecting = false;
         private double _lastSidebarWidth = 280;
         private bool _sidebarCollapsed = false;
+        private bool _isUpdatingToggle = false;
 
         public ObservableCollection<SiteUI> Sites { get; } = new();
 
@@ -54,6 +55,7 @@ namespace MasterUI
                 _orchestrator.OnLog += Log;
                 _orchestrator.OnSitesListUpdated += UpdateSitesList;
                 _orchestrator.OnSessionTerminated += HandleSessionTerminated;
+                _orchestrator.OnChatSystemStatusChanged += HandleChatSystemStatusChanged;
 
                 await _orchestrator.ConnectAsync();
 
@@ -381,6 +383,29 @@ namespace MasterUI
                 _activeSiteId = null;
                 MainTabControl.SelectedIndex = 0;
             });
+        }
+
+        private void HandleChatSystemStatusChanged(bool enabled)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                _isUpdatingToggle = true;
+                WebChatToggle.IsChecked = enabled;
+                _isUpdatingToggle = false;
+                Log($"[Arayüz] Web Görüşme Sistemi durumu güncellendi: {(enabled ? "AKTİF" : "PASİF")}");
+            });
+        }
+
+        private void WebChatToggle_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingToggle) return;
+            _orchestrator?.ToggleChatSystemAsync(true);
+        }
+
+        private void WebChatToggle_Unchecked(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingToggle) return;
+            _orchestrator?.ToggleChatSystemAsync(false);
         }
     }
 }

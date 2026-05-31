@@ -370,9 +370,19 @@
                                FontSize="11" Foreground="{StaticResource TextMuted}" 
                                Margin="12,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
 
-                    <!-- OTURUMU KAPAT button -->
-                    <Button x:Name="DisconnectButton" Grid.Column="3" Style="{StaticResource DisconnectButton}" 
-                            Content="OTURUMU KAPAT" Visibility="Collapsed" Click="DisconnectButton_Click"/>
+                    <!-- OTURUMU KAPAT ve Görüşme Sistemi Kontrolleri -->
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                        <CheckBox x:Name="WebChatToggle" 
+                                  Content="Görüşme Sistemini Aktif Et" 
+                                  Foreground="White" 
+                                  VerticalAlignment="Center" 
+                                  Margin="0,0,20,0"
+                                  Checked="WebChatToggle_Checked"
+                                  Unchecked="WebChatToggle_Unchecked"
+                                  Cursor="Hand"/>
+                        <Button x:Name="DisconnectButton" Style="{StaticResource DisconnectButton}" 
+                                Content="OTURUMU KAPAT" Visibility="Collapsed" Click="DisconnectButton_Click"/>
+                    </StackPanel>
                 </Grid>
             </Border>
 

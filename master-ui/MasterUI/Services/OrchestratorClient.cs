@@ -24,6 +24,7 @@ namespace MasterUI.Services
         public event Action<string, string, int, byte[]>? OnTunnelUdp;
         public event Action<string>? OnSessionTerminated;
         public event Action<string>? OnLog;
+        public event Action<bool>? OnChatSystemStatusChanged;
 
         public bool IsConnected => _client?.Connected ?? false;
 
@@ -75,6 +76,21 @@ namespace MasterUI.Services
                 catch (Exception ex)
                 {
                     Log($"[Socket] Error parsing sites list: {ex.Message}");
+                }
+                return Task.CompletedTask;
+            });
+
+            // Chat system status updates
+            _client.On("chat-system-status", context =>
+            {
+                try
+                {
+                    var status = context.GetValue<ChatSystemStatusResponse>(0);
+                    OnChatSystemStatusChanged?.Invoke(status?.enabled ?? false);
+                }
+                catch (Exception ex)
+                {
+                    Log($"[Socket] Error parsing chat system status: {ex.Message}");
                 }
                 return Task.CompletedTask;
             });
@@ -261,6 +277,15 @@ namespace MasterUI.Services
             }
         }
 
+        public async Task ToggleChatSystemAsync(bool enabled)
+        {
+            if (_client != null && _client.Connected)
+            {
+                await _client.EmitAsync("toggle-chat-system", new object[] { new { enabled } });
+                Log($"[Socket] Web Görüşme Sistemi durum değiştirme talebi gönderildi: {(enabled ? "AKTİF" : "PASİF")}");
+            }
+        }
+
         public async Task DisconnectAsync()
         {
             if (_client != null)
@@ -275,6 +300,11 @@ namespace MasterUI.Services
         {
             OnLog?.Invoke(msg);
         }
+    }
+
+    public class ChatSystemStatusResponse
+    {
+        public bool enabled { get; set; }
     }
 
     public class SessionResponse
