@@ -11,6 +11,7 @@ let currentCallPartnerName = "";
 let myName = "";
 let myPin = "";
 let mySessionPassword = "";
+let remoteIceCandidatesQueue = [];
 let rtcConfiguration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -102,12 +103,14 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on('rtc-ice-candidate', async (data) => {
-        if (peerConnection) {
+        if (peerConnection && peerConnection.remoteDescription) {
             try {
                 await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
             } catch (err) {
                 console.error("Error adding ICE candidate", err);
             }
+        } else {
+            remoteIceCandidatesQueue.push(data.candidate);
         }
     });
 
@@ -404,6 +407,19 @@ async function setupRtcConnection(targetSocketId, isCaller) {
     }
 }
 
+async function processQueuedIceCandidates() {
+    if (!peerConnection || !peerConnection.remoteDescription) return;
+    console.log(`WebRTC: Processing ${remoteIceCandidatesQueue.length} queued ICE candidates.`);
+    for (const candidate of remoteIceCandidatesQueue) {
+        try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+            console.error("Error adding queued ICE candidate", err);
+        }
+    }
+    remoteIceCandidatesQueue = [];
+}
+
 async function handleRtcOffer(fromSocketId, offer) {
     if (!peerConnection) {
         // Callee accepted call but RTC is not fully initiated yet
@@ -412,6 +428,7 @@ async function handleRtcOffer(fromSocketId, offer) {
 
     try {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        await processQueuedIceCandidates();
         
         // Generate SDP Answer handshake
         const answer = await peerConnection.createAnswer();
@@ -433,6 +450,7 @@ async function handleRtcAnswer(answer) {
         try {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
             console.log("RTC: Handshake successfully completed.");
+            await processQueuedIceCandidates();
         } catch (err) {
             console.error("Error setting remote SDP Answer:", err);
             closeActiveCall();
@@ -505,6 +523,8 @@ function closeActiveCall() {
         peerConnection.close();
         peerConnection = null;
     }
+
+    remoteIceCandidatesQueue = [];
 
     // Reset video objects
     localVideo.srcObject = null;
