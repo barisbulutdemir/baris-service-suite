@@ -149,49 +149,6 @@
         </div>
     </div>
 
-    <!-- ================= SYSTEM DIAGNOSTIC PANEL ================= -->
-    <div class="diagnostic-panel-toggle" onclick="toggleDiagnosticPanel()">
-        <span>🛠️ Sistem Teşhis & Günlük Paneli</span>
-    </div>
-    <div class="diagnostic-panel" id="diagnosticPanel">
-        <header class="diagnostic-header">
-            <h3>🛠️ Sistem Teşhis ve Canlı Günlük (Live Debug Logs)</h3>
-            <button class="diagnostic-close-btn" onclick="toggleDiagnosticPanel()">✕</button>
-        </header>
-        <div class="diagnostic-content">
-            <!-- Row 1: Status Badges -->
-            <div class="status-grid">
-                <div class="status-card">
-                    <span class="card-label">Kamera/Mikrofon İzni:</span>
-                    <span class="card-value badge-loading" id="diagMediaAccess">Bekleniyor...</span>
-                </div>
-                <div class="status-card">
-                    <span class="card-label">Sinyalleşme Soketi:</span>
-                    <span class="card-value badge-loading" id="diagSocketConn">Bağlanılıyor...</span>
-                </div>
-                <div class="status-card">
-                    <span class="card-label">ICE/TURN Yüklemesi:</span>
-                    <span class="card-value badge-loading" id="diagIceServers">Bekleniyor...</span>
-                </div>
-                <div class="status-card">
-                    <span class="card-label">Tünel Durumu (WebRTC):</span>
-                    <span class="card-value badge-loading" id="diagRtcState">Boşta</span>
-                </div>
-                <div class="status-card">
-                    <span class="card-label">ICE Adayı Değişimi:</span>
-                    <span class="card-value" id="diagIceExchange" style="color: #3498db;">L: 0 | R: 0</span>
-                </div>
-            </div>
-            <!-- Row 2: Live Log Output -->
-            <div class="log-output-container">
-                <h4>Canlı Hata Ayıklama Günlüğü (Live Debug Logs)</h4>
-                <div class="log-output" id="diagLogsOutput">
-                    <!-- Logs will be dynamically appended here -->
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script src="index.js"></script>
 </body>
 </html>
