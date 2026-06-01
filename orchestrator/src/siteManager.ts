@@ -95,20 +95,20 @@ export class SiteManager {
     ];
 
     if (turnUrl && turnUsername && turnCredential) {
-      servers.push({
-        urls: turnUrl,
-        username: turnUsername,
-        credential: turnCredential
-      });
-      // Fallback TCP over ports 443 and 80 for Metered.ca (perfect for strict corporate networks/firewalls)
+      // If it is Metered.ca, populate the complete high-compatibility lists they provided!
       if (turnUrl.includes('metered.ca')) {
+        const host = turnUrl.includes('global.relay.metered.ca') ? 'global.relay.metered.ca' : 'global.turn.metered.ca';
+        const stunHost = turnUrl.includes('global.relay.metered.ca') ? 'stun.relay.metered.ca' : 'stun.turn.metered.ca';
+        
+        servers.push({ urls: `stun:${stunHost}:80` });
+        servers.push({ urls: `turn:${host}:80`, username: turnUsername, credential: turnCredential });
+        servers.push({ urls: `turn:${host}:80?transport=tcp`, username: turnUsername, credential: turnCredential });
+        servers.push({ urls: `turn:${host}:443`, username: turnUsername, credential: turnCredential });
+        servers.push({ urls: `turns:${host}:443?transport=tcp`, username: turnUsername, credential: turnCredential });
+      } else {
+        // Fallback for standard custom TURN
         servers.push({
-          urls: turnUrl.replace(':3478', ':443').replace('transport=udp', 'transport=tcp'),
-          username: turnUsername,
-          credential: turnCredential
-        });
-        servers.push({
-          urls: turnUrl.replace(':3478', ':80').replace('transport=udp', 'transport=tcp'),
+          urls: turnUrl,
           username: turnUsername,
           credential: turnCredential
         });

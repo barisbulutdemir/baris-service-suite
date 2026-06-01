@@ -41,9 +41,9 @@ services:
       - PORT=3000
       - AUTH_TOKEN=BarisServis2026!
       # WebRTC STUN/TURN Server Configuration (Open Relay Project)
-      - TURN_URL=turn:openrelay.metered.ca:3478?transport=udp
-      - TURN_USERNAME=openrelayproject
-      - TURN_PASSWORD=openrelayproject
+      - TURN_URL=turn:global.relay.metered.ca:80
+      - TURN_USERNAME=66cdbb717572b6f254590fe1
+      - TURN_PASSWORD=vKpbPSAwVXUUtogd
     restart: unless-stopped
     logging:
       driver: "json-file"
