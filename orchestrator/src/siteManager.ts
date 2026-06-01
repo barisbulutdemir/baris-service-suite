@@ -100,10 +100,15 @@ export class SiteManager {
         username: turnUsername,
         credential: turnCredential
       });
-      // Fallback TCP over port 443 for Metered.ca (perfect for corporate networks/firewalls)
-      if (turnUrl.includes('global.turn.metered.ca')) {
+      // Fallback TCP over ports 443 and 80 for Metered.ca (perfect for strict corporate networks/firewalls)
+      if (turnUrl.includes('metered.ca')) {
         servers.push({
           urls: turnUrl.replace(':3478', ':443').replace('transport=udp', 'transport=tcp'),
+          username: turnUsername,
+          credential: turnCredential
+        });
+        servers.push({
+          urls: turnUrl.replace(':3478', ':80').replace('transport=udp', 'transport=tcp'),
           username: turnUsername,
           credential: turnCredential
         });
