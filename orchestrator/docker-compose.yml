@@ -40,10 +40,10 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - AUTH_TOKEN=BarisServis2026!
-      # WebRTC STUN/TURN Server Configuration (Metered.ca or any custom TURN provider)
-      - TURN_URL=
-      - TURN_USERNAME=
-      - TURN_PASSWORD=
+      # WebRTC STUN/TURN Server Configuration (Open Relay Project)
+      - TURN_URL=turn:openrelay.metered.ca:3478?transport=udp
+      - TURN_USERNAME=openrelayproject
+      - TURN_PASSWORD=openrelayproject
     restart: unless-stopped
     logging:
       driver: "json-file"
