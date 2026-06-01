@@ -35,7 +35,10 @@ app.get('/api/sites', (req, res) => {
 });
 
 app.get('/api/chat/status', (req, res) => {
-  res.json({ enabled: siteManager.isChatSystemEnabled() });
+  res.json({ 
+    enabled: siteManager.isChatSystemEnabled(),
+    iceServers: siteManager.getIceServersConfig()
+  });
 });
 
 setupSocketHandler(io, siteManager, AUTH_TOKEN);

@@ -53,6 +53,17 @@ let isCamMuted = false;
 
 // 1. Initial Connection Setup
 window.addEventListener('DOMContentLoaded', () => {
+    // Fetch ICE/TURN Server Configuration from Orchestrator dynamically
+    fetch('/api/chat/status')
+        .then(res => res.json())
+        .then(data => {
+            if (data.iceServers) {
+                rtcConfiguration.iceServers = data.iceServers;
+                console.log("WebRTC: Loaded dynamic ICE/TURN configuration successfully.");
+            }
+        })
+        .catch(err => console.error("Error loading WebRTC network config:", err));
+
     // Connect to Orchestrator socket.io backend
     socket = io(window.location.origin, {
         query: { role: 'chat-user' },

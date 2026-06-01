@@ -83,6 +83,35 @@ export class SiteManager {
     return password === this.mainPassword;
   }
 
+  public getIceServersConfig() {
+    const turnUrl = process.env.TURN_URL;
+    const turnUsername = process.env.TURN_USERNAME;
+    const turnCredential = process.env.TURN_PASSWORD;
+
+    const servers: any[] = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ];
+
+    if (turnUrl && turnUsername && turnCredential) {
+      servers.push({
+        urls: turnUrl,
+        username: turnUsername,
+        credential: turnCredential
+      });
+      // Fallback TCP over port 443 for Metered.ca (perfect for corporate networks/firewalls)
+      if (turnUrl.includes('global.turn.metered.ca')) {
+        servers.push({
+          urls: turnUrl.replace(':3478', ':443').replace('transport=udp', 'transport=tcp'),
+          username: turnUsername,
+          credential: turnCredential
+        });
+      }
+    }
+    return servers;
+  }
+
   // Web Chat User Directory Management
   public addChatUser(id: string, name: string, pin?: string): ChatUser {
     const user: ChatUser = {

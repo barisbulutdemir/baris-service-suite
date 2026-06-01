@@ -40,6 +40,10 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - AUTH_TOKEN=BarisServis2026!
+      # WebRTC STUN/TURN Server Configuration (Metered.ca or any custom TURN provider)
+      - TURN_URL=
+      - TURN_USERNAME=
+      - TURN_PASSWORD=
     restart: unless-stopped
     logging:
       driver: "json-file"
