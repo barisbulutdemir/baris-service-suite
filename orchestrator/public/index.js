@@ -326,10 +326,19 @@ async function initializeLocalMedia() {
         document.getElementById('toggleMicBtn').classList.remove('active');
         document.getElementById('toggleCamBtn').classList.remove('active');
 
-        // Capture microphone and video streams
+        // Capture microphone and video streams with premium HD 720p constraints
         localStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true
+            video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                frameRate: { ideal: 30, max: 60 },
+                facingMode: "user"
+            },
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
         });
         localVideo.srcObject = localStream;
         console.log("Local camera and mic stream captured successfully.");
@@ -337,6 +346,24 @@ async function initializeLocalMedia() {
         console.error("Fatal error accessing user media tools:", err);
         alert("Görüntülü konuşma için kamera ve mikrofon izinlerinin verilmesi zorunludur!");
         closeActiveCall();
+    }
+}
+
+async function increaseVideoBitrate() {
+    if (!peerConnection) return;
+    try {
+        const videoSender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (videoSender) {
+            const parameters = videoSender.getParameters();
+            if (!parameters.encodings || parameters.encodings.length === 0) {
+                parameters.encodings = [{}];
+            }
+            parameters.encodings[0].maxBitrate = 2500000; // 2.5 Mbps for crystal clear HD video
+            await videoSender.setParameters(parameters);
+            console.log("WebRTC: Video transmission bitrate maximized to 2.5 Mbps.");
+        }
+    } catch (err) {
+        console.warn("Could not set WebRTC video bitrate parameter:", err);
     }
 }
 
@@ -387,6 +414,7 @@ async function setupRtcConnection(targetSocketId, isCaller) {
         if (isCaller) {
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
+            await increaseVideoBitrate();
             
             socket.emit('rtc-offer', {
                 to: targetSocketId,
@@ -413,6 +441,7 @@ async function handleRtcOffer(fromSocketId, offer) {
         // Generate SDP Answer handshake
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
+        await increaseVideoBitrate();
 
         socket.emit('rtc-answer', {
             to: fromSocketId,
