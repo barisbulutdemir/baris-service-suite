@@ -52,9 +52,23 @@ namespace Agent.Service.Services
             }
         }
 
+        private void LogToFile(string message)
+        {
+            try
+            {
+                string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BarisServiceSuite");
+                if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+                string path = Path.Combine(folder, "debug_log.txt");
+                File.AppendAllText(path, $"[RustDeskManager] [{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}");
+            }
+            catch { }
+        }
+
         public string GetRustDeskId()
         {
             if (!string.IsNullOrEmpty(_cachedId) && _cachedId != "N/A") return _cachedId;
+
+            LogToFile($"Starting GetRustDeskId. Detected executable path: {_rustDeskPath} (Exists: {File.Exists(_rustDeskPath)})");
 
             // Method 1: Try running via cmd.exe piping to more (solves GUI stdout redirect issue)
             try
@@ -69,6 +83,7 @@ namespace Agent.Service.Services
                     CreateNoWindow = true
                 };
 
+                LogToFile("Attempting Method 1: cmd.exe pipe command...");
                 using (var process = Process.Start(startInfo))
                 {
                     if (process != null)
@@ -76,16 +91,19 @@ namespace Agent.Service.Services
                         if (process.WaitForExit(3000))
                         {
                             string output = process.StandardOutput.ReadToEnd().Trim();
+                            LogToFile($"Cmd output: '{output}'");
                             if (!string.IsNullOrEmpty(output) && !output.Contains("Error") && output.All(char.IsDigit) && output.Length >= 6)
                             {
                                 _cachedId = output;
                                 _logger.LogInformation($"Retrieved RustDesk ID via cmd pipe: {_cachedId}");
+                                LogToFile($"Retrieved ID successfully via cmd pipe: {_cachedId}");
                                 return _cachedId;
                             }
                         }
                         else
                         {
                             _logger.LogWarning("RustDesk ID retrieval via cmd pipe timed out.");
+                            LogToFile("Method 1 timed out.");
                             try { process.Kill(); } catch { }
                         }
                     }
@@ -94,41 +112,58 @@ namespace Agent.Service.Services
             catch (Exception ex)
             {
                 _logger.LogWarning($"Failed to get RustDesk ID via cmd pipe: {ex.Message}");
+                LogToFile($"Method 1 failed with error: {ex.Message}");
             }
 
             // Method 2: Fallback to scanning log files for ID pattern
             try
             {
+                LogToFile("Attempting Method 2: Scanning log files...");
                 var logPaths = new List<string>();
                 
                 // 1. Current user's appdata
                 string userAppData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
                 if (!string.IsNullOrEmpty(userAppData))
                 {
-                    logPaths.Add(Path.Combine(userAppData, "RustDesk", "log"));
+                    string path = Path.Combine(userAppData, "RustDesk", "log");
+                    logPaths.Add(path);
+                    LogToFile($"Added UserAppData log path: {path}");
                 }
 
-                // 2. All users' appdata in C:\Users
+                // 2. All users' appdata in C:\Users (explicitly fixed C:\Users path)
                 try
                 {
-                    string usersDir = Path.GetDirectoryName(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)) ?? @"C:\Users";
+                    string usersDir = @"C:\Users";
                     if (Directory.Exists(usersDir))
                     {
+                        LogToFile($"Scanning {usersDir} for profiles...");
                         foreach (var dir in Directory.GetDirectories(usersDir))
                         {
-                            logPaths.Add(Path.Combine(dir, "AppData", "Roaming", "RustDesk", "log"));
+                            string path = Path.Combine(dir, "AppData", "Roaming", "RustDesk", "log");
+                            logPaths.Add(path);
+                            LogToFile($"Added candidate user log path: {path} (Exists: {Directory.Exists(path)})");
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    LogToFile($"Error scanning C:\\Users: {ex.Message}");
+                }
 
                 // 3. System service profile appdata
                 logPaths.Add(@"C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\log");
                 logPaths.Add(@"C:\Windows\System32\config\systemprofile\AppData\Roaming\RustDesk\log");
+                LogToFile("Added system profile log paths.");
 
                 foreach (var logDir in logPaths)
                 {
-                    if (!Directory.Exists(logDir)) continue;
+                    if (!Directory.Exists(logDir))
+                    {
+                        LogToFile($"Log directory does not exist, skipping: {logDir}");
+                        continue;
+                    }
+
+                    LogToFile($"Scanning existing log directory: {logDir}");
 
                     // Find all log files (.log) in the log directory and subdirectories (like flutter_ffi)
                     var logFiles = Directory.GetFiles(logDir, "*.log", SearchOption.AllDirectories)
@@ -136,8 +171,11 @@ namespace Agent.Service.Services
                         .OrderByDescending(f => f.LastWriteTime)
                         .ToList();
 
+                    LogToFile($"Found {logFiles.Count} log files in {logDir}");
+
                     foreach (var fileInfo in logFiles)
                     {
+                        LogToFile($"Scanning file: {fileInfo.FullName} (Size: {fileInfo.Length} bytes)");
                         // Open file sharing-friendly to avoid lock issues
                         using (var fs = new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                         using (var sr = new StreamReader(fs))
@@ -158,6 +196,7 @@ namespace Agent.Service.Services
                                         {
                                             _cachedId = possibleId;
                                             _logger.LogInformation($"Found RustDesk ID '{_cachedId}' in log file: {fileInfo.FullName}");
+                                            LogToFile($"Success: Found ID '{_cachedId}' in line: '{line.Trim()}' of {fileInfo.FullName}");
                                             return _cachedId;
                                         }
                                     }
@@ -179,6 +218,7 @@ namespace Agent.Service.Services
                                         {
                                             _cachedId = possibleId;
                                             _logger.LogInformation($"Found RustDesk ID '{_cachedId}' from update line in log file: {fileInfo.FullName}");
+                                            LogToFile($"Success: Found ID '{_cachedId}' in line: '{line.Trim()}' of {fileInfo.FullName}");
                                             return _cachedId;
                                         }
                                     }
@@ -197,6 +237,7 @@ namespace Agent.Service.Services
                                     {
                                         _cachedId = possibleId;
                                         _logger.LogInformation($"Found RustDesk ID '{_cachedId}' from id colon in log file: {fileInfo.FullName}");
+                                        LogToFile($"Success: Found ID '{_cachedId}' in line: '{line.Trim()}' of {fileInfo.FullName}");
                                         return _cachedId;
                                     }
                                 }
@@ -208,8 +249,10 @@ namespace Agent.Service.Services
             catch (Exception ex)
             {
                 _logger.LogWarning($"Failed to extract RustDesk ID from logs: {ex.Message}");
+                LogToFile($"Method 2 failed with error: {ex.Message}");
             }
 
+            LogToFile("All RustDesk ID retrieval methods failed. Returning 'N/A'.");
             return "N/A";
         }
 
