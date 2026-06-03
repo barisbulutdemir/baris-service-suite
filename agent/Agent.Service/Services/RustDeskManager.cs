@@ -1,5 +1,8 @@
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 
@@ -51,14 +54,15 @@ namespace Agent.Service.Services
 
         public string GetRustDeskId()
         {
-            if (!string.IsNullOrEmpty(_cachedId)) return _cachedId;
+            if (!string.IsNullOrEmpty(_cachedId) && _cachedId != "N/A") return _cachedId;
 
+            // Method 1: Try running via cmd.exe piping to more (solves GUI stdout redirect issue)
             try
             {
                 var startInfo = new ProcessStartInfo
                 {
-                    FileName = _rustDeskPath,
-                    Arguments = "--get-id",
+                    FileName = "cmd.exe",
+                    Arguments = $"/c \"\"{_rustDeskPath}\" --get-id | more\"",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -69,20 +73,19 @@ namespace Agent.Service.Services
                 {
                     if (process != null)
                     {
-                        // Wait first, then read to prevent deadlock
                         if (process.WaitForExit(3000))
                         {
                             string output = process.StandardOutput.ReadToEnd().Trim();
-                            if (!string.IsNullOrEmpty(output) && !output.Contains("Error"))
+                            if (!string.IsNullOrEmpty(output) && !output.Contains("Error") && output.All(char.IsDigit) && output.Length >= 6)
                             {
                                 _cachedId = output;
-                                _logger.LogInformation($"Retrieved RustDesk ID: {_cachedId}");
+                                _logger.LogInformation($"Retrieved RustDesk ID via cmd pipe: {_cachedId}");
                                 return _cachedId;
                             }
                         }
                         else
                         {
-                            _logger.LogWarning("RustDesk ID retrieval timed out.");
+                            _logger.LogWarning("RustDesk ID retrieval via cmd pipe timed out.");
                             try { process.Kill(); } catch { }
                         }
                     }
@@ -90,7 +93,121 @@ namespace Agent.Service.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving RustDesk ID.");
+                _logger.LogWarning($"Failed to get RustDesk ID via cmd pipe: {ex.Message}");
+            }
+
+            // Method 2: Fallback to scanning log files for ID pattern
+            try
+            {
+                var logPaths = new List<string>();
+                
+                // 1. Current user's appdata
+                string userAppData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                if (!string.IsNullOrEmpty(userAppData))
+                {
+                    logPaths.Add(Path.Combine(userAppData, "RustDesk", "log"));
+                }
+
+                // 2. All users' appdata in C:\Users
+                try
+                {
+                    string usersDir = Path.GetDirectoryName(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)) ?? @"C:\Users";
+                    if (Directory.Exists(usersDir))
+                    {
+                        foreach (var dir in Directory.GetDirectories(usersDir))
+                        {
+                            logPaths.Add(Path.Combine(dir, "AppData", "Roaming", "RustDesk", "log"));
+                        }
+                    }
+                }
+                catch { }
+
+                // 3. System service profile appdata
+                logPaths.Add(@"C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\log");
+                logPaths.Add(@"C:\Windows\System32\config\systemprofile\AppData\Roaming\RustDesk\log");
+
+                foreach (var logDir in logPaths)
+                {
+                    if (!Directory.Exists(logDir)) continue;
+
+                    // Find all log files (.log) in the log directory and subdirectories (like flutter_ffi)
+                    var logFiles = Directory.GetFiles(logDir, "*.log", SearchOption.AllDirectories)
+                        .Select(f => new FileInfo(f))
+                        .OrderByDescending(f => f.LastWriteTime)
+                        .ToList();
+
+                    foreach (var fileInfo in logFiles)
+                    {
+                        // Open file sharing-friendly to avoid lock issues
+                        using (var fs = new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        using (var sr = new StreamReader(fs))
+                        {
+                            string? line;
+                            while ((line = sr.ReadLine()) != null)
+                            {
+                                // Check for pattern: "Session [ID] start"
+                                int sessionStartIdx = line.IndexOf("Session ");
+                                if (sessionStartIdx >= 0)
+                                {
+                                    int startIdx = sessionStartIdx + "Session ".Length;
+                                    int endIdx = line.IndexOf(" start", startIdx);
+                                    if (endIdx > startIdx)
+                                    {
+                                        string possibleId = line.Substring(startIdx, endIdx - startIdx).Trim();
+                                        if (!string.IsNullOrEmpty(possibleId) && possibleId.All(char.IsDigit) && possibleId.Length >= 6)
+                                        {
+                                            _cachedId = possibleId;
+                                            _logger.LogInformation($"Found RustDesk ID '{_cachedId}' in log file: {fileInfo.FullName}");
+                                            return _cachedId;
+                                        }
+                                    }
+                                }
+
+                                // Check for pattern: "id updated from [old] to [new]"
+                                int updatedFromIdx = line.IndexOf("id updated from ");
+                                if (updatedFromIdx >= 0)
+                                {
+                                    int toIdx = line.IndexOf(" to ", updatedFromIdx);
+                                    if (toIdx > updatedFromIdx)
+                                    {
+                                        string possibleId = line.Substring(toIdx + 4).Trim();
+                                        // Remove any trailing log content
+                                        int spaceIdx = possibleId.IndexOf(' ');
+                                        if (spaceIdx > 0) possibleId = possibleId.Substring(0, spaceIdx);
+                                        
+                                        if (!string.IsNullOrEmpty(possibleId) && possibleId.All(char.IsDigit) && possibleId.Length >= 6)
+                                        {
+                                            _cachedId = possibleId;
+                                            _logger.LogInformation($"Found RustDesk ID '{_cachedId}' from update line in log file: {fileInfo.FullName}");
+                                            return _cachedId;
+                                        }
+                                    }
+                                }
+
+                                // Check for pattern: "id: [ID]"
+                                int idColonIdx = line.IndexOf("id: ");
+                                if (idColonIdx >= 0)
+                                {
+                                    string possibleId = line.Substring(idColonIdx + 4).Trim();
+                                    int spaceIdx = possibleId.IndexOf(' ');
+                                    if (spaceIdx > 0) possibleId = possibleId.Substring(0, spaceIdx);
+                                    // Strip non-digits just in case
+                                    possibleId = new string(possibleId.Where(char.IsDigit).ToArray());
+                                    if (!string.IsNullOrEmpty(possibleId) && possibleId.Length >= 6)
+                                    {
+                                        _cachedId = possibleId;
+                                        _logger.LogInformation($"Found RustDesk ID '{_cachedId}' from id colon in log file: {fileInfo.FullName}");
+                                        return _cachedId;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"Failed to extract RustDesk ID from logs: {ex.Message}");
             }
 
             return "N/A";
