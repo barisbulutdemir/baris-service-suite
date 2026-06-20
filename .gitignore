@@ -36,3 +36,6 @@ Thumbs.db
 rustdesk-data/
 *.bak
 *.log
+
+# Large binaries exclusion
+orchestrator/public/Agent.Service.exe

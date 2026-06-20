@@ -15,8 +15,8 @@ namespace Agent.Service.Services
     {
         private readonly ILogger<SocketClient> _logger;
         private readonly IConfiguration _configuration;
-        private readonly RustDeskManager _rustDeskManager;
         private readonly TunnelHandler _tunnelHandler;
+        private readonly ScreenStreamer _screenStreamer;
         
         private SocketIO? _client;
         private readonly string _url;
@@ -40,21 +40,27 @@ namespace Agent.Service.Services
         public SocketClient(
             ILogger<SocketClient> logger, 
             IConfiguration configuration, 
-            RustDeskManager rustDeskManager,
-            TunnelHandler tunnelHandler)
+            TunnelHandler tunnelHandler,
+            ScreenStreamer screenStreamer)
         {
             _logger = logger;
             _configuration = configuration;
-            _rustDeskManager = rustDeskManager;
             _tunnelHandler = tunnelHandler;
+            _screenStreamer = screenStreamer;
 
-            _url = _configuration["Orchestrator:Url"] ?? "https://remote.barisbd.tr";
+            _url = _configuration["Orchestrator:Url"] ?? "http://3.73.144.148:3030";
             _authToken = _configuration["Orchestrator:AuthToken"] ?? "BarisServis2026!";
             
-            // Load or create persistent random agent ID
-            var config = AgentConfigManager.LoadOrCreate();
-            _siteId = config.SiteId;
-            _siteName = config.SiteName;
+            _siteId = _configuration["Orchestrator:SiteId"] ?? "";
+            _siteName = _configuration["Orchestrator:SiteName"] ?? "";
+
+            if (string.IsNullOrEmpty(_siteId))
+            {
+                // Load or create persistent random agent ID
+                var config = AgentConfigManager.LoadOrCreate();
+                _siteId = config.SiteId;
+                _siteName = config.SiteName;
+            }
         }
 
         private async Task FetchLocationAsync()
@@ -85,14 +91,7 @@ namespace Agent.Service.Services
 
         private void LogToFile(string message)
         {
-            try
-            {
-                string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BarisServiceSuite");
-                if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-                string path = Path.Combine(folder, "debug_log.txt");
-                System.IO.File.AppendAllText(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}");
-            }
-            catch { }
+            AgentLogger.Log("SocketClient", message);
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -111,11 +110,6 @@ namespace Agent.Service.Services
                 LogToFile($"Location fetch task error: {ex.Message}");
             }
 
-            string rustDeskId = _rustDeskManager.GetRustDeskDeskIdAndVerify();
-            string rustDeskPassword = _rustDeskManager.GetOrCreatePassword();
-
-            LogToFile($"RustDesk ID: {rustDeskId}, Password: {rustDeskPassword}");
-
             var options = new SocketIOOptions
             {
                 Auth = new { token = _authToken },
@@ -124,8 +118,8 @@ namespace Agent.Service.Services
                     { "role", "agent" },
                     { "siteId", _siteId },
                     { "siteName", _siteName },
-                    { "rustDeskId", rustDeskId },
-                    { "rustDeskPassword", rustDeskPassword },
+                    { "rustDeskId", "N/A" },
+                    { "rustDeskPassword", "N/A" },
                     { "locationCountry", _locationCountry },
                     { "locationCity", _locationCity },
                     { "locationLat", _locationLat },
@@ -168,12 +162,62 @@ namespace Agent.Service.Services
             // Register TCP/UDP tunnel packets handling
             _tunnelHandler.RegisterEvents(_client);
 
+            // Register Screen Share command handling
+            _tunnelHandler.OnScreenShareCommand += (masterSocketId, command) =>
+            {
+                if (command == "start")
+                {
+                    _screenStreamer.Start(_client!, masterSocketId, _url);
+                }
+                else if (command == "stop")
+                {
+                    _screenStreamer.Stop();
+                }
+                else if (command.StartsWith("{"))
+                {
+                    _screenStreamer.HandleInputEvent(command);
+                }
+            };
+
+            // Register File Transfer packet handling
+            _tunnelHandler.OnFileTransferPayload += (payload) =>
+            {
+                _screenStreamer.HandleFileTransferPayload(payload);
+            };
+
+            // Register Clipboard Sync packet handling
+            _tunnelHandler.OnClipboardSyncPayload += (payload) =>
+            {
+                _screenStreamer.HandleClipboardSyncPayload(payload);
+            };
+
+            // Register UDP Holepunch packet handling
+            _tunnelHandler.OnUdpHolePunchPayload += (payload) =>
+            {
+                _screenStreamer.HandleUdpHolePunchPayload(payload);
+            };
+
+            // Register Speed Test packet handling
+            _tunnelHandler.OnSpeedTestPayload += (payload) =>
+            {
+                _screenStreamer.HandleSpeedTestPayload(payload);
+            };
+
+            // Register Screen Quality packet handling
+            _tunnelHandler.OnScreenQualityPayload += (payload) =>
+            {
+                _screenStreamer.HandleScreenQualityPayload(payload);
+            };
+
+
+
             // Handle server command to terminate session
             _client.On("session-stopped", context =>
             {
                 _logger.LogInformation("[SocketClient] Session stopped command received. Closing tunnels.");
                 LogToFile("[SocketClient] Session stopped command received. Closing tunnels.");
                 _tunnelHandler.CloseAllTunnels();
+                _screenStreamer.Stop();
                 return Task.CompletedTask;
             });
 
@@ -213,6 +257,7 @@ namespace Agent.Service.Services
             _shouldReconnect = false;
             
             _tunnelHandler.Shutdown();
+            _screenStreamer.Stop();
 
             if (_client != null)
             {
@@ -225,21 +270,6 @@ namespace Agent.Service.Services
                     _logger.LogError(ex, "Error disconnecting socket client.");
                 }
                 _client.Dispose();
-            }
-        }
-    }
-
-    public static class RustDeskExtensions
-    {
-        public static string GetRustDeskDeskIdAndVerify(this RustDeskManager manager)
-        {
-            try
-            {
-                return manager.GetRustDeskId();
-            }
-            catch
-            {
-                return "N/A";
             }
         }
     }

@@ -98,60 +98,96 @@ namespace MasterUI.Services
             // Tunnel Acknowledged by Agent
             _client.On("tunnel-opened", context =>
             {
-                var connectionId = context.GetValue<string>(0) ?? "";
-                var success = context.GetValue<bool>(1);
-                var error = context.GetValue<string>(2);
+                try
+                {
+                    var obj = context.GetValue<System.Text.Json.JsonElement>(0);
+                    var connectionId = obj.GetProperty("connectionId").GetString() ?? "";
+                    var success = obj.GetProperty("success").GetBoolean();
+                    string? error = null;
+                    if (obj.TryGetProperty("error", out var errProp))
+                    {
+                        error = errProp.GetString();
+                    }
 
-                _connectionAcks[connectionId] = (success, error);
-                OnTunnelOpened?.Invoke(connectionId, success, error);
+                    _connectionAcks[connectionId] = (success, error);
+                    OnTunnelOpened?.Invoke(connectionId, success, error);
+                }
+                catch (Exception ex)
+                {
+                    Log($"[Socket] Error parsing tunnel-opened: {ex.Message}");
+                }
                 return Task.CompletedTask;
             });
 
             // Tunnel TCP Data received from Agent
             _client.On("tunnel-data", context =>
             {
-                var connectionId = context.GetValue<string>(0) ?? "";
-                var base64Data = context.GetValue<string>(1) ?? "";
-                byte[] data;
                 try
                 {
-                    data = Convert.FromBase64String(base64Data);
-                }
-                catch
-                {
-                    try { data = context.GetValue<byte[]>(1); } catch { data = Array.Empty<byte>(); }
-                }
+                    var obj = context.GetValue<System.Text.Json.JsonElement>(0);
+                    var connectionId = obj.GetProperty("connectionId").GetString() ?? "";
+                    var base64Data = obj.GetProperty("chunk").GetString() ?? "";
+                    byte[] data;
+                    try
+                    {
+                        data = Convert.FromBase64String(base64Data);
+                    }
+                    catch
+                    {
+                        try { data = System.Text.Encoding.UTF8.GetBytes(base64Data); } catch { data = Array.Empty<byte>(); }
+                    }
 
-                OnTunnelData?.Invoke(connectionId, data);
+                    OnTunnelData?.Invoke(connectionId, data);
+                }
+                catch (Exception ex)
+                {
+                    Log($"[Socket] Error parsing tunnel-data: {ex.Message}");
+                }
                 return Task.CompletedTask;
             });
 
             // Tunnel Closed by Agent
             _client.On("tunnel-close", context =>
             {
-                var connectionId = context.GetValue<string>(0) ?? "";
-                OnTunnelClosed?.Invoke(connectionId);
+                try
+                {
+                    var obj = context.GetValue<System.Text.Json.JsonElement>(0);
+                    var connectionId = obj.GetProperty("connectionId").GetString() ?? "";
+                    OnTunnelClosed?.Invoke(connectionId);
+                }
+                catch (Exception ex)
+                {
+                    Log($"[Socket] Error parsing tunnel-close: {ex.Message}");
+                }
                 return Task.CompletedTask;
             });
 
             // Tunnel UDP Packet received from Agent
             _client.On("tunnel-udp", context =>
             {
-                var connectionId = context.GetValue<string>(0) ?? "";
-                var host = context.GetValue<string>(1) ?? "";
-                var port = context.GetValue<int>(2);
-                var base64Data = context.GetValue<string>(3) ?? "";
-                byte[] data;
                 try
                 {
-                    data = Convert.FromBase64String(base64Data);
-                }
-                catch
-                {
-                    try { data = context.GetValue<byte[]>(3); } catch { data = Array.Empty<byte>(); }
-                }
+                    var obj = context.GetValue<System.Text.Json.JsonElement>(0);
+                    var connectionId = obj.GetProperty("connectionId").GetString() ?? "";
+                    var host = obj.GetProperty("host").GetString() ?? "";
+                    var port = obj.GetProperty("port").GetInt32();
+                    var base64Data = obj.GetProperty("chunk").GetString() ?? "";
+                    byte[] data;
+                    try
+                    {
+                        data = Convert.FromBase64String(base64Data);
+                    }
+                    catch
+                    {
+                        data = Array.Empty<byte>();
+                    }
 
-                OnTunnelUdp?.Invoke(connectionId, host, port, data);
+                    OnTunnelUdp?.Invoke(connectionId, host, port, data);
+                }
+                catch (Exception ex)
+                {
+                    Log($"[Socket] Error parsing tunnel-udp: {ex.Message}");
+                }
                 return Task.CompletedTask;
             });
 

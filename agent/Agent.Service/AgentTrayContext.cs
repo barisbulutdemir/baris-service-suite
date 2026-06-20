@@ -15,6 +15,7 @@ namespace Agent.Service
         private readonly CancellationTokenSource _cts;
         private readonly IHost _host;
         private readonly Task _hostTask;
+        private StatusForm? _statusForm;
 
         public AgentTrayContext(SocketClient socketClient, CancellationTokenSource cts, IHost host, Task hostTask)
         {
@@ -33,38 +34,38 @@ namespace Agent.Service
             _trayIcon = new NotifyIcon
             {
                 Icon = SystemIcons.Application,
-                Text = "Barış Teknik Servis Ajanı",
+                Text = "Tech Service Agent",
                 ContextMenuStrip = contextMenu,
                 Visible = true
             };
 
-            _trayIcon.BalloonTipTitle = "Barış Teknik Servis Ajanı";
+            _trayIcon.DoubleClick += OnShowStatus;
+
+            _trayIcon.BalloonTipTitle = "Tech Service Agent";
             _trayIcon.BalloonTipText = "Ajan başarıyla başlatıldı ve sistem tepsisinde arka planda çalışıyor.";
             _trayIcon.ShowBalloonTip(3000);
         }
 
         private void OnShowStatus(object? sender, EventArgs e)
         {
-            string id = _socketClient.SiteId;
-            string name = _socketClient.SiteName;
-            string status = _socketClient.IsConnected ? "Orkestratör'e Bağlı" : "Orkestratör'e Bağlanıyor...";
-            string location = _socketClient.LocationString;
-
-            MessageBox.Show(
-                $"Barış Servis Ajanı Durum Bilgisi:\n\n" +
-                $"Şantiye ID: {id}\n" +
-                $"Şantiye İsmi: {name}\n" +
-                $"Bağlantı Durumu: {status}\n" +
-                $"Lokasyon: {location}",
-                "Ajan Bilgileri",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information
-            );
+            if (_statusForm == null || _statusForm.IsDisposed)
+            {
+                _statusForm = new StatusForm(_socketClient);
+            }
+            _statusForm.Show();
+            _statusForm.WindowState = FormWindowState.Normal;
+            _statusForm.Activate();
         }
 
         private void OnExit(object? sender, EventArgs e)
         {
             _trayIcon.Visible = false;
+            
+            try
+            {
+                _statusForm?.Close();
+            }
+            catch { }
 
             // Terminate background Host safely
             _cts.Cancel();

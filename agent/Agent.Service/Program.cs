@@ -14,13 +14,29 @@ namespace Agent.Service
         [STAThread]
         static void Main(string[] args)
         {
+            // Clear old log file on application startup to keep logs fresh and relevant
+            try
+            {
+                string folder = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BarisServiceSuite");
+                string path = System.IO.Path.Combine(folder, "debug_log.txt");
+                if (System.IO.File.Exists(path))
+                {
+                    System.IO.File.Delete(path);
+                }
+            }
+            catch { }
+
             ApplicationConfiguration.Initialize();
 
-            var builder = Host.CreateApplicationBuilder(args);
+            var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+            {
+                Args = args,
+                ContentRootPath = AppDomain.CurrentDomain.BaseDirectory
+            });
 
             // Register Custom Services
-            builder.Services.AddSingleton<RustDeskManager>();
             builder.Services.AddSingleton<TunnelHandler>();
+            builder.Services.AddSingleton<ScreenStreamer>();
             builder.Services.AddSingleton<SocketClient>();
 
             builder.Services.AddHostedService<Worker>();

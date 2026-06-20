@@ -16,6 +16,13 @@ namespace Agent.Service.Services
         private readonly ConcurrentDictionary<string, DateTime> _udpLastActive = new();
         private readonly CancellationTokenSource _udpCleanupCts = new();
 
+        public event Action<string, string>? OnScreenShareCommand;
+        public event Action<string>? OnFileTransferPayload;
+        public event Action<string>? OnClipboardSyncPayload;
+        public event Action<string>? OnUdpHolePunchPayload;
+        public event Action<string>? OnSpeedTestPayload;
+        public event Action<string>? OnScreenQualityPayload;
+
         public TunnelHandler(ILogger<TunnelHandler> logger)
         {
             _logger = logger;
@@ -26,72 +33,195 @@ namespace Agent.Service.Services
         {
             client.On("tunnel-open", async context =>
             {
-                var masterSocketId = context.GetValue<string>(0) ?? "";
-                var connectionId = context.GetValue<string>(1) ?? "";
-                var host = context.GetValue<string>(2) ?? "";
-                var port = context.GetValue<int>(3);
+                try
+                {
+                    var obj = context.GetValue<System.Text.Json.JsonElement>(0);
+                    var masterSocketId = obj.GetProperty("masterSocketId").GetString() ?? "";
+                    var connectionId = obj.GetProperty("connectionId").GetString() ?? "";
+                    var host = obj.GetProperty("host").GetString() ?? "";
+                    var port = obj.GetProperty("port").GetInt32();
 
-                _logger.LogInformation($"[Tunnel] Request to open TCP tunnel. ConnectionId: {connectionId}, Target: {host}:{port}");
-                await HandleTcpOpenAsync(client, masterSocketId, connectionId, host, port);
+                    _logger.LogInformation($"[Tunnel] Request to open TCP tunnel. ConnectionId: {connectionId}, Target: {host}:{port}");
+                    await HandleTcpOpenAsync(client, masterSocketId, connectionId, host, port);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[Tunnel] Error parsing tunnel-open");
+                }
             });
 
             client.On("tunnel-data", context =>
             {
-                var connectionId = context.GetValue<string>(1) ?? "";
-                var base64Data = context.GetValue<string>(2) ?? "";
-                byte[] chunk;
                 try
                 {
-                    chunk = Convert.FromBase64String(base64Data);
-                }
-                catch
-                {
+                    var obj = context.GetValue<System.Text.Json.JsonElement>(0);
+                    var connectionId = obj.GetProperty("connectionId").GetString() ?? "";
+                    
+                    if (connectionId == "screen-share")
+                    {
+                        var masterSocketId = obj.GetProperty("masterSocketId").GetString() ?? "";
+                        var base64Command = obj.GetProperty("chunk").GetString() ?? "";
+                        string command = "";
+                        try
+                        {
+                            byte[] bytes = Convert.FromBase64String(base64Command);
+                            command = System.Text.Encoding.UTF8.GetString(bytes);
+                        }
+                        catch
+                        {
+                            command = base64Command;
+                        }
+                        OnScreenShareCommand?.Invoke(masterSocketId, command);
+                        return Task.CompletedTask;
+                    }
+
+                    if (connectionId == "file-transfer")
+                    {
+                        var base64Command = obj.GetProperty("chunk").GetString() ?? "";
+                        string command = "";
+                        try
+                        {
+                            byte[] bytes = Convert.FromBase64String(base64Command);
+                            command = System.Text.Encoding.UTF8.GetString(bytes);
+                        }
+                        catch
+                        {
+                            command = base64Command;
+                        }
+                        OnFileTransferPayload?.Invoke(command);
+                        return Task.CompletedTask;
+                    }
+
+                    if (connectionId == "clipboard-sync")
+                    {
+                        var base64Command = obj.GetProperty("chunk").GetString() ?? "";
+                        string command = "";
+                        try
+                        {
+                            byte[] bytes = Convert.FromBase64String(base64Command);
+                            command = System.Text.Encoding.UTF8.GetString(bytes);
+                        }
+                        catch
+                        {
+                            command = base64Command;
+                        }
+                        OnClipboardSyncPayload?.Invoke(command);
+                        return Task.CompletedTask;
+                    }
+
+                    if (connectionId == "udp-holepunch-init")
+                    {
+                        var base64Command = obj.GetProperty("chunk").GetString() ?? "";
+                        string command = "";
+                        try
+                        {
+                            byte[] bytes = Convert.FromBase64String(base64Command);
+                            command = System.Text.Encoding.UTF8.GetString(bytes);
+                        }
+                        catch
+                        {
+                            command = base64Command;
+                        }
+                        OnUdpHolePunchPayload?.Invoke(command);
+                        return Task.CompletedTask;
+                    }
+
+                    if (connectionId == "screen-share-quality")
+                    {
+                        var base64Command = obj.GetProperty("chunk").GetString() ?? "";
+                        string command = "";
+                        try
+                        {
+                            byte[] bytes = Convert.FromBase64String(base64Command);
+                            command = System.Text.Encoding.UTF8.GetString(bytes);
+                        }
+                        catch
+                        {
+                            command = base64Command;
+                        }
+                        OnScreenQualityPayload?.Invoke(command);
+                        return Task.CompletedTask;
+                    }
+
+                    if (connectionId == "connection-speed-test")
+                    {
+                        var base64Command = obj.GetProperty("chunk").GetString() ?? "";
+                        string command = "";
+                        try
+                        {
+                            byte[] bytes = Convert.FromBase64String(base64Command);
+                            command = System.Text.Encoding.UTF8.GetString(bytes);
+                        }
+                        catch
+                        {
+                            command = base64Command;
+                        }
+                        OnSpeedTestPayload?.Invoke(command);
+                        return Task.CompletedTask;
+                    }
+
+                    var base64Data = obj.GetProperty("chunk").GetString() ?? "";
+                    byte[] chunk;
                     try
                     {
-                        chunk = context.GetValue<byte[]>(2);
+                        chunk = Convert.FromBase64String(base64Data);
                     }
                     catch
                     {
                         chunk = Array.Empty<byte>();
                     }
-                }
 
-                HandleTcpData(connectionId, chunk);
+                    HandleTcpData(connectionId, chunk);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[Tunnel] Error parsing tunnel-data");
+                }
                 return Task.CompletedTask;
             });
 
             client.On("tunnel-close", context =>
             {
-                var connectionId = context.GetValue<string>(1) ?? "";
-                HandleTcpClose(connectionId);
+                try
+                {
+                    var obj = context.GetValue<System.Text.Json.JsonElement>(0);
+                    var connectionId = obj.GetProperty("connectionId").GetString() ?? "";
+                    HandleTcpClose(connectionId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[Tunnel] Error parsing tunnel-close");
+                }
                 return Task.CompletedTask;
             });
 
             client.On("tunnel-udp", context =>
             {
-                var masterSocketId = context.GetValue<string>(0) ?? "";
-                var connectionId = context.GetValue<string>(1) ?? "";
-                var host = context.GetValue<string>(2) ?? "";
-                var port = context.GetValue<int>(3);
-                var base64Data = context.GetValue<string>(4) ?? "";
-                byte[] chunk;
                 try
                 {
-                    chunk = Convert.FromBase64String(base64Data);
-                }
-                catch
-                {
+                    var obj = context.GetValue<System.Text.Json.JsonElement>(0);
+                    var masterSocketId = obj.GetProperty("masterSocketId").GetString() ?? "";
+                    var connectionId = obj.GetProperty("connectionId").GetString() ?? "";
+                    var host = obj.GetProperty("host").GetString() ?? "";
+                    var port = obj.GetProperty("port").GetInt32();
+                    var base64Data = obj.GetProperty("chunk").GetString() ?? "";
+                    
+                    byte[] chunk;
                     try
                     {
-                        chunk = context.GetValue<byte[]>(4);
+                        chunk = Convert.FromBase64String(base64Data);
                     }
                     catch
                     {
                         chunk = Array.Empty<byte>();
                     }
-                }
 
-                HandleUdpPacket(client, masterSocketId, connectionId, host, port, chunk);
+                    HandleUdpPacket(client, masterSocketId, connectionId, host, port, chunk);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[Tunnel] Error parsing tunnel-udp");
+                }
                 return Task.CompletedTask;
             });
 

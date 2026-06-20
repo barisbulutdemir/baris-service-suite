@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:MasterUI"
         mc:Ignorable="d"
-        Title="Barış Teknik Servis Paneli (Industrial Suite)" 
+        Title="Tech Service Panel (Industrial Suite)" 
         Height="720" Width="1200"
         Background="#121212"
         Foreground="#FFFFFF"
@@ -179,9 +179,8 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="BARIŞ" FontSize="20" FontWeight="Black" Foreground="{StaticResource AccentBlue}"/>
-                        <TextBlock Text="Technical Service Suite" FontSize="11" Foreground="{StaticResource TextMuted}" Margin="0,2,0,0"/>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="Technical Service Suite" FontSize="15" FontWeight="Black" Foreground="{StaticResource AccentBlue}"/>
                     </StackPanel>
                     <Button x:Name="CollapseSidebarBtn" Grid.Column="1" Click="ToggleSidebar_Click"
                             Background="Transparent" Foreground="{StaticResource TextMuted}" BorderThickness="0"
@@ -301,7 +300,7 @@
                                     
                                     <StackPanel Grid.Column="1">
                                         <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Foreground="White"/>
-                                        <TextBlock Text="{Binding RustDeskId, StringFormat='ID: {0}'}" FontSize="11" Foreground="{StaticResource TextMuted}" Margin="0,2,0,0"/>
+                                        <TextBlock Text="{Binding Id, StringFormat='ID: {0}'}" FontSize="11" Foreground="{StaticResource TextMuted}" Margin="0,2,0,0"/>
                                         <TextBlock Text="{Binding LocationString}" FontSize="10" Foreground="#007ACC" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
                                 </Grid>
@@ -370,16 +369,20 @@
                                FontSize="11" Foreground="{StaticResource TextMuted}" 
                                Margin="12,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
 
-                    <!-- OTURUMU KAPAT ve Görüşme Sistemi Kontrolleri -->
+                    <!-- HIZ TESTİ & OTURUMU KAPAT -->
                     <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                        <CheckBox x:Name="WebChatToggle" 
-                                  Content="Görüşme Sistemini Aktif Et" 
-                                  Foreground="White" 
-                                  VerticalAlignment="Center" 
-                                  Margin="0,0,20,0"
-                                  Checked="WebChatToggle_Checked"
-                                  Unchecked="WebChatToggle_Unchecked"
-                                  Cursor="Hand"/>
+                        <ComboBox x:Name="QualityComboBox" Width="120" Margin="0,0,10,0" VerticalAlignment="Center"
+                                  Background="#2D2D30" Foreground="White" BorderThickness="1" BorderBrush="#3F3F46"
+                                  SelectionChanged="QualityComboBox_SelectionChanged" Visibility="Collapsed">
+                            <ComboBoxItem Content="Düşük (480p)" Tag="low" Background="#2D2D30" Foreground="White"/>
+                            <ComboBoxItem Content="Orta (720p)" Tag="medium" IsSelected="True" Background="#2D2D30" Foreground="White"/>
+                            <ComboBoxItem Content="Yüksek (1080p)" Tag="high" Background="#2D2D30" Foreground="White"/>
+                            <ComboBoxItem Content="Ultra (Orijinal)" Tag="ultra" Background="#2D2D30" Foreground="White"/>
+                        </ComboBox>
+                        <Button x:Name="FullscreenButton" Style="{StaticResource ModernButton}" Background="#2D2D30" Foreground="White"
+                                Content="Tam Ekran" Visibility="Collapsed" Click="FullscreenButton_Click" Margin="0,0,10,0" Padding="12,8"/>
+                        <Button x:Name="SpeedTestButton" Style="{StaticResource ModernButton}" Background="#2D2D30" Foreground="White"
+                                Content="Hız Testi Yap" Visibility="Collapsed" Click="SpeedTestButton_Click" Margin="0,0,10,0" Padding="12,8"/>
                         <Button x:Name="DisconnectButton" Style="{StaticResource DisconnectButton}" 
                                 Content="OTURUMU KAPAT" Visibility="Collapsed" Click="DisconnectButton_Click"/>
                     </StackPanel>
@@ -430,8 +433,22 @@
                 <TabItem Header="RemoteDesktop">
                     <Grid>
                         <Border Background="#1C1C1C" CornerRadius="6" BorderBrush="#2D2D30" BorderThickness="1" ClipToBounds="True">
-                            <Grid x:Name="RemoteDesktopContainer">
-                                <!-- Remote desktop host control will be inserted dynamically here -->
+                            <Grid>
+                                <Grid x:Name="RemoteDesktopContainer">
+                                    <!-- Remote desktop host control will be inserted dynamically here -->
+                                </Grid>
+
+                                <!-- File Transfer Progress Overlay (Non-blocking, bottom-right corner) -->
+                                <Grid x:Name="FileTransferOverlay" Visibility="Collapsed">
+                                    <Border Background="#1E1E1E" BorderBrush="#007ACC" BorderThickness="1.5" CornerRadius="8" Width="340" Height="125" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,20" Padding="15">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock x:Name="FileTransferTitleText" Text="Dosya Gönderiliyor..." FontSize="12" FontWeight="Bold" Foreground="White" Margin="0,0,0,3"/>
+                                            <TextBlock x:Name="FileTransferFileNameText" Text="dosya.exe" FontSize="10" Foreground="#A0A0A0" Margin="0,0,0,10" TextTrimming="CharacterEllipsis"/>
+                                            <ProgressBar x:Name="FileTransferProgressBar" Height="6" Value="0" Maximum="100" Background="#333333" Foreground="#007ACC" BorderThickness="0" Margin="0,0,0,8"/>
+                                            <TextBlock x:Name="FileTransferStatsText" Text="Hız: 0 KB/s | 0 / 0 MB" FontSize="10" Foreground="#007ACC"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
                             </Grid>
                         </Border>
                     </Grid>
