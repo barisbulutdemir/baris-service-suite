@@ -35,7 +35,7 @@ services:
       dockerfile: Dockerfile
     container_name: baris-orchestrator
     ports:
-      - "3030:3000"
+      - "80:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
