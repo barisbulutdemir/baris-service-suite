@@ -642,6 +642,7 @@ function toggleMuteMic() {
     }
 }
 
+// Custom system check to remove error elements if active
 function toggleMuteCam() {
     if (localStream) {
         const videoTrack = localStream.getVideoTracks()[0];
