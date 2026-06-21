@@ -65,3 +65,15 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: baris-cloudflared
+    network_mode: "host"
+    command: tunnel --no-autoupdate run --token eyJhIjoiOTcxNzQ1Mzc4ZmNkNzRmZmI2MTRhOTA1NDg2MGMyYzgiLCJ0IjoiNDlhMTNiYzMtNDcyZi00N2E0LWEzMzMtMzVlZDljM2NhMDlhIiwicyI6IllqZ3hNak01TnpZdE0yWm1OaTAwWWpCbUxXSXpORGN0Wm1WaVpUY3hNbVJrT0dWaiJ9
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
