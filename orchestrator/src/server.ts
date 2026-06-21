@@ -22,6 +22,15 @@ const AUTH_TOKEN = process.env.AUTH_TOKEN || 'BarisServis2026!';
 // Serve static WebRTC client files from public folder
 app.use(express.static(path.join(process.cwd(), 'public')));
 
+app.get('/download/master', (req, res) => {
+  const password = req.query.password || req.query.sifre;
+  if (password === 'adnanbey') {
+    return res.download(path.join(process.cwd(), 'private', 'MasterUI.zip'), 'MasterUI.zip');
+  } else {
+    return res.status(403).send('Hatalı Şifre / Unauthorized');
+  }
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', sitesCount: siteManager.getSitesList().length });
 });
