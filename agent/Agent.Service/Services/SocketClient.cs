@@ -48,7 +48,7 @@ namespace Agent.Service.Services
             _tunnelHandler = tunnelHandler;
             _screenStreamer = screenStreamer;
 
-            _url = _configuration["Orchestrator:Url"] ?? "http://3.73.144.148:3030";
+            _url = _configuration["Orchestrator:Url"] ?? "http://3.73.144.148";
             _authToken = _configuration["Orchestrator:AuthToken"] ?? "BarisServis2026!";
             
             _siteId = _configuration["Orchestrator:SiteId"] ?? "";

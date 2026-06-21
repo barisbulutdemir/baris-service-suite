@@ -8,6 +8,10 @@
     <UseWindowsForms>true</UseWindowsForms>
     <UserSecretsId>dotnet-Agent.Service-ad862581-bb5e-45da-bbfa-a37d31577733</UserSecretsId>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfContained>true</IncludeNativeLibrariesForSelfContained>
   </PropertyGroup>
 
   <ItemGroup>

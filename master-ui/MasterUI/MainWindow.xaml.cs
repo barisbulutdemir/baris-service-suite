@@ -25,7 +25,7 @@ namespace MasterUI
         private WintunManager? _wintunManager;
         private ScreenViewer? _screenViewer;
         
-        private string _serverUrl = "http://3.73.144.148:3030";
+        private string _serverUrl = "http://3.73.144.148";
         private string _authToken = "BarisServis2026!";
         private string? _activeSiteId;
         private bool _isConnecting = false;
