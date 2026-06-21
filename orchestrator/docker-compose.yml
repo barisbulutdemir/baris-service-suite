@@ -42,10 +42,23 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - AUTH_TOKEN=BarisServis2026!
-      # WebRTC STUN/TURN Server Configuration (Open Relay Project)
-      - TURN_URL=turn:global.relay.metered.ca:80
-      - TURN_USERNAME=66cdbb717572b6f254590fe1
-      - TURN_PASSWORD=vKpbPSAwVXUUtogd
+      # WebRTC STUN/TURN Server Configuration (Local Coturn Server)
+      - TURN_URL=turn:3.73.144.148:3478
+      - TURN_USERNAME=baris
+      - TURN_PASSWORD=BarisServis2026!
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  coturn:
+    image: coturn/coturn:latest
+    container_name: baris-coturn
+    network_mode: "host"
+    volumes:
+      - ./coturn.conf:/etc/coturn/turnserver.conf
     restart: unless-stopped
     logging:
       driver: "json-file"

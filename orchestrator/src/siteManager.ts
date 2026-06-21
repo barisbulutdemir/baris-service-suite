@@ -112,6 +112,13 @@ export class SiteManager {
           username: turnUsername,
           credential: turnCredential
         });
+        if (turnUrl.startsWith('turn:')) {
+          servers.push({
+            urls: `${turnUrl}?transport=tcp`,
+            username: turnUsername,
+            credential: turnCredential
+          });
+        }
       }
     }
     return servers;
