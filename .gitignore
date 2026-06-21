@@ -39,4 +39,5 @@ rustdesk-data/
 
 # Large binaries exclusion
 orchestrator/public/Agent.Service.exe
+orchestrator/public/Agent.Service.zip
 orchestrator/private/

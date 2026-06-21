@@ -26,7 +26,7 @@ namespace Agent.Service.Services
         private FileStream? _activeFileStream;
         private string? _activeFilePath;
         private bool _activeFileIsFolder = false;
-        private string _serverUrl = "http://3.73.144.148";
+        private string _serverUrl = "https://destek.barisbd.tr";
 
         // Custom screen quality options
         private int _customMaxWidth = 1024;
